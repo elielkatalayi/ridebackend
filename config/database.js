@@ -2,7 +2,7 @@ const { Sequelize } = require('sequelize');
 const env = require('./env');
 
 // =====================================================
-// 🗄️ CONNEXION POSTGRESQL (RENDER)
+// 🗄️ CONNEXION POSTGRESQL
 // =====================================================
 const sequelize = new Sequelize({
   dialect: 'postgres',
@@ -12,12 +12,6 @@ const sequelize = new Sequelize({
   username: env.DB_USER,
   password: env.DB_PASSWORD,
   logging: env.NODE_ENV === 'development' ? console.log : false,
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false  // Important pour Render
-    }
-  },
   pool: {
     max: 10,
     min: 0,
@@ -39,7 +33,7 @@ const sequelize = new Sequelize({
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ PostgreSQL connecté avec succès (Render)');
+    console.log('✅ PostgreSQL connecté avec succès');
     
     // Synchronisation des modèles (développement uniquement)
     if (env.NODE_ENV === 'development') {
@@ -48,8 +42,7 @@ const connectDB = async () => {
     }
   } catch (error) {
     console.error('❌ Erreur de connexion PostgreSQL:', error.message);
-    // Ne pas exit, laisser l'app démarrer sans DB si nécessaire
-    // process.exit(1);
+    process.exit(1);
   }
 };
 

@@ -1,0 +1,2 @@
+[0mGET /api/v1/ [33m404[0m 69.816 ms - 63[0m
+[0mGET /api/v1/users/me [33m401[0m 2931.718 ms - 38[0m
