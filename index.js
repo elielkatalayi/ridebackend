@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require('http');
+const http = require('http'); // ✅ AJOUTÉ pour créer le serveur HTTP
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -7,31 +7,25 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 
-// =====================================================
-// 📦 CHARGEMENT DES MODULES DEPUIS src/
-// =====================================================
-const env = require('./src/config/env');
-const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
-const { globalLimiter } = require('./src/middleware/rateLimiter');
-const logger = require('./src/utils/logger');
+const env = require('./config/env');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { globalLimiter } = require('./middleware/rateLimiter');
+const logger = require('./utils/logger');
 
 // =====================================================
 // 🔌 SOCKET.IO IMPORTS
 // =====================================================
-const { initializeSocket } = require('./src/sockets');
-const SocketService = require('./src/services/notification/SocketService');
+const { initializeSocket } = require('./sockets');
+const SocketService = require('./services/notification/SocketService');
 
-// =====================================================
-// 📁 CRÉATION DES DOSSIERS DE LOGS
-// =====================================================
-const logsDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+// Créer le dossier logs s'il n'existe pas
+if (!fs.existsSync(path.join(__dirname, '../logs'))) {
+  fs.mkdirSync(path.join(__dirname, '../logs'), { recursive: true });
 }
 
 // Créer un stream pour les erreurs séparées
 const errorLogStream = fs.createWriteStream(
-  path.join(logsDir, 'error.log'),
+  path.join(__dirname, '../logs/error.log'),
   { flags: 'a' }
 );
 
@@ -55,7 +49,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-eval'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
       connectSrc: ["'self'", "https://api.shawari.app", "https://maps.googleapis.com", "wss:", "ws:"]
     }
@@ -118,7 +112,7 @@ logger.debug('✅ Middlewares de sécurité chargés');
 // Morgan pour les logs HTTP (format combiné)
 const morganFormat = env.NODE_ENV === 'production' ? 'combined' : 'dev';
 const accessLogStream = fs.createWriteStream(
-  path.join(logsDir, 'access.log'),
+  path.join(__dirname, '../logs/access.log'),
   { flags: 'a' }
 );
 app.use(morgan(morganFormat, { stream: accessLogStream }));
@@ -183,12 +177,12 @@ app.get('/health', (req, res) => {
     environment: env.NODE_ENV,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    websocket: SocketService.isConnectedSocket ? SocketService.isConnectedSocket() : 'unknown'
+    websocket: SocketService.isConnectedSocket() ? 'connected' : 'disconnected'
   });
 });
 
 app.get('/health/detailed', async (req, res) => {
-  const { sequelize } = require('./src/config/database');
+  const { sequelize } = require('./config/database');
   let dbStatus = 'disconnected';
   let socketStatus = 'disconnected';
   
@@ -201,7 +195,7 @@ app.get('/health/detailed', async (req, res) => {
   }
   
   try {
-    socketStatus = SocketService.isConnectedSocket ? SocketService.isConnectedSocket() : 'disconnected';
+    socketStatus = SocketService.isConnectedSocket() ? 'connected' : 'disconnected';
   } catch (error) {
     socketStatus = 'error';
   }
@@ -225,7 +219,7 @@ app.get('/metrics', (req, res) => {
     memory: process.memoryUsage(),
     node_version: process.version,
     platform: process.platform,
-    websocket_connected: SocketService.isConnectedSocket ? SocketService.isConnectedSocket() : false
+    websocket_connected: SocketService.isConnectedSocket()
   });
 });
 
@@ -266,7 +260,7 @@ app.get('/', (req, res) => {
 
 // Routes API v1
 try {
-  const apiRoutes = require('./src/routes/v1');
+  const apiRoutes = require('./routes/v1');
   app.use('/api/v1', apiRoutes);
   logger.info('✅ Routes API v1 chargées avec succès');
 } catch (error) {
@@ -280,18 +274,14 @@ try {
 // =====================================================
 // 🗂️ STATIC FILES (pour les uploads)
 // =====================================================
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 logger.debug('✅ Serveur de fichiers statiques configuré');
 
 // =====================================================
 // 🗄️ DATABASE CONNECTION
 // =====================================================
 
-const { sequelize } = require('./src/config/database');
+const { sequelize } = require('./config/database');
 sequelize.authenticate()
   .then(() => {
     logger.info('✅ Connexion à la base de données établie avec succès');
@@ -334,13 +324,13 @@ logger.info('🎯 Tous les middlewares et routes sont en place');
 
 const PORT = env.PORT || 5000;
 
-// Créer le serveur HTTP
+// ✅ CRÉER LE SERVEUR HTTP (au lieu de app.listen directement)
 const server = http.createServer(app);
 
-// Initialiser Socket.IO
+// ✅ INITIALISER SOCKET.IO
 const io = initializeSocket(server);
 
-// Démarrer le serveur
+// ✅ DÉMARRER LE SERVEUR
 server.listen(PORT, () => {
   logger.info('='.repeat(60));
   logger.info(`🚀 Serveur démarré avec succès !`);
@@ -348,7 +338,7 @@ server.listen(PORT, () => {
   logger.info(`🔌 WebSocket URL: ws://localhost:${PORT}`);
   logger.info(`🌍 Environnement: ${env.NODE_ENV}`);
   logger.info(`💾 Base de données: ${env.DB_NAME || 'Non configurée'}`);
-  logger.info(`📝 Logs: ${logsDir}`);
+  logger.info(`📝 Logs: ${path.join(__dirname, '../logs')}`);
   logger.info('='.repeat(60));
   console.log(`\n✅ Serveur API démarré sur http://localhost:${PORT}`);
   console.log(`🔌 WebSocket disponible sur ws://localhost:${PORT}`);
@@ -437,5 +427,4 @@ app.use((req, res, next) => {
   console.log('📨 URL:', req.url);
   next();
 });
-
 module.exports = { app, server, io };
