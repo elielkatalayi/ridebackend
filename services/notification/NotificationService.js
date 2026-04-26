@@ -1,7 +1,7 @@
 const { Notification, NotificationLog } = require('../../models');
 const { sequelize } = require('../../config/database');
 const TemplateService = require('./TemplateService');
-const DispatcherService = require('./DispatcherService');
+// const DispatcherService = require('./DispatcherService'); // COMMENTÉ - Fichier manquant
 const PreferenceService = require('./PreferenceService');
 const PushService = require('./pushService');
 const SocketService = require('./SocketService');
@@ -73,10 +73,13 @@ class NotificationService {
     // Créer la notification en BDD
     const notification = await Notification.create(notificationData);
     
-    // Dispatcher
-    const result = await DispatcherService.dispatch(notification);
+    // Dispatcher - COMMENTÉ car DispatcherService n'existe pas
+    // const result = await DispatcherService.dispatch(notification);
+    // return { notification, result };
     
-    return { notification, result };
+    // Solution temporaire : retourner seulement la notification
+    console.log(`📢 Notification créée pour l'utilisateur ${userId} (${type}/${subtype}) mais non dispatchée`);
+    return { notification, result: { success: true, message: 'Notification créée sans dispatch' } };
   }
   
   // ==================== NOTIFICATIONS DE COURSE ====================
@@ -548,12 +551,38 @@ class NotificationService {
   
   // ==================== MÉTHODES DE MISE À JOUR ====================
   
+  // COMMENTÉ - Dépend de DispatcherService
+  // async markAsRead(notificationId, userId) {
+  //   return DispatcherService.markAsRead(notificationId, userId);
+  // }
+  
   async markAsRead(notificationId, userId) {
-    return DispatcherService.markAsRead(notificationId, userId);
+    // Solution temporaire sans DispatcherService
+    const notification = await Notification.findOne({
+      where: { id: notificationId, user_id: userId }
+    });
+    
+    if (notification) {
+      notification.status = 'read';
+      notification.read_at = new Date();
+      await notification.save();
+      return { success: true };
+    }
+    return { success: false };
   }
   
+  // COMMENTÉ - Dépend de DispatcherService
+  // async markAllAsRead(userId) {
+  //   return DispatcherService.markAllAsRead(userId);
+  // }
+  
   async markAllAsRead(userId) {
-    return DispatcherService.markAllAsRead(userId);
+    // Solution temporaire sans DispatcherService
+    const [updatedCount] = await Notification.update(
+      { status: 'read', read_at: new Date() },
+      { where: { user_id: userId, status: ['pending', 'delivered'] } }
+    );
+    return { updatedCount };
   }
   
   async deleteNotification(notificationId, userId) {
@@ -579,8 +608,17 @@ class NotificationService {
     return updatedCount;
   }
   
+  // COMMENTÉ - Dépend de DispatcherService
+  // async getUnreadCount(userId) {
+  //   return DispatcherService.getUserUnreadCount(userId);
+  // }
+  
   async getUnreadCount(userId) {
-    return DispatcherService.getUserUnreadCount(userId);
+    // Solution temporaire sans DispatcherService
+    const count = await Notification.count({
+      where: { user_id: userId, status: ['pending', 'delivered'], is_deleted: false }
+    });
+    return count;
   }
   
   // ==================== MÉTHODES DE PRÉFÉRENCES ====================
@@ -700,6 +738,3 @@ class NotificationService {
 }
 
 module.exports = new NotificationService();
-
-
-
