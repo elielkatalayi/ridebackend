@@ -53,7 +53,7 @@ router.post(
 
 /**
  * @route   POST /api/v1/auth/login
- * @desc    Connexion utilisateur
+ * @desc    Connexion utilisateur (classique)
  * @access  Public
  */
 router.post(
@@ -61,6 +61,30 @@ router.post(
   authLimiter,
   validate(userValidator.login, 'body'),
   authController.login
+);
+
+/**
+ * @route   POST /api/v1/auth/login-otp
+ * @desc    Connexion utilisateur via OTP (email)
+ * @access  Public
+ */
+router.post(
+  '/login-otp',
+  authLimiter,
+  validate(userValidator.loginOtp, 'body'),
+  authController.loginWithOtp
+);
+
+/**
+ * @route   POST /api/v1/auth/verify-login-otp
+ * @desc    Vérifier OTP et connexion (téléphone)
+ * @access  Public
+ */
+router.post(
+  '/verify-login-otp',
+  authLimiter,
+  validate(userValidator.verifyLoginOtp, 'body'),
+  authController.verifyLoginOtp
 );
 
 // ========== OTP GÉNÉRIQUE ==========

@@ -113,20 +113,17 @@ class AuthController {
           return res.status(409).json({ error: 'Cet utilisateur existe déjà' });
         }
         
-        const passwordValidation = passwordService.validatePasswordStrength(password);
-        if (!passwordValidation.isValid) {
-          return res.status(400).json({ error: passwordValidation.errors[0] });
-        }
+        // Le mot de passe n'est plus utilisé - authentification OTP uniquement
         
         // ✅ Valider la date de naissance si fournie - CORRIGÉ
         if (birth_date) {
           const birthDateObj = new Date(birth_date);
           const today = new Date();
-          let age = today.getFullYear() - birthDateObj.getFullYear();  // ← let au lieu de const
+          let age = today.getFullYear() - birthDateObj.getFullYear();
           const monthDiff = today.getMonth() - birthDateObj.getMonth();
           
           if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDateObj.getDate())) {
-            age--;  // ← Maintenant ça fonctionne
+            age--;
           }
           
           if (age < 13) {
@@ -145,7 +142,6 @@ class AuthController {
         const user = await User.create({
           phone,
           email: email || null,
-          password_hash: password,
           first_name,
           last_name,
           emergency_contact_name: emergency_contact_name || null,
@@ -266,12 +262,12 @@ class AuthController {
   }
 
   // =====================================================
-  // 🔐 CONNEXION
+  // 🔐 CONNEXION AVEC OTP
   // =====================================================
 
   async login(req, res, next) {
     try {
-      let { phone, password } = req.body;
+      let { phone } = req.body;
       
       if (!phone) {
         return res.status(400).json({ 
@@ -280,17 +276,7 @@ class AuthController {
         });
       }
       
-      if (!password) {
-        return res.status(400).json({ 
-          error: 'Le mot de passe est requis',
-          field: 'password'
-        });
-      }
-      
-      // ✅ Plus de validation formatPhoneNumber
-      console.log('🔍 Tentative de connexion:', { 
-        originalPhone: phone
-      });
+      console.log('🔍 Demande de connexion OTP pour:', { phone });
       
       const user = await User.findOne({ where: { phone: phone } });
       
@@ -303,20 +289,7 @@ class AuthController {
         });
       }
       
-      console.log('✅ Utilisateur trouvé:', { id: user.id, phone: user.phone });
-      
-      const isPasswordValid = await user.comparePassword(password);
-      
-      if (!isPasswordValid) {
-        console.log('❌ Mot de passe incorrect pour:', phone);
-        return res.status(401).json({ 
-          error: 'Mot de passe incorrect',
-          field: 'password',
-          suggestion: 'Vérifiez votre mot de passe ou utilisez "Mot de passe oublié"'
-        });
-      }
-      
-      console.log('✅ Mot de passe valide');
+      console.log('✅ Utilisateur trouvé, envoi OTP:', { id: user.id, phone: user.phone });
       
       if (!user.is_active) {
         return res.status(403).json({ 
@@ -333,6 +306,73 @@ class AuthController {
         });
       }
       
+      // Envoyer l'OTP pour connexion
+      const result = await otpService.sendOtp(phone, user.otp_channel || 'sms', 'login');
+      
+      console.log('✅ OTP envoyé pour connexion:', { phone, expiresAt: result.expiresAt });
+      
+      res.json({
+        success: true,
+        message: `Code OTP envoyé par ${user.otp_channel || 'sms'}`,
+        expiresAt: result.expiresAt,
+        phone: phone,
+        userId: user.id,
+        requiresOtpVerification: true
+      });
+    } catch (error) {
+      console.error('❌ Erreur envoi OTP connexion:', error);
+      next(error);
+    }
+  }
+
+  // =====================================================
+  // 🔐 VÉRIFICATION OTP CONNEXION PAR TÉLÉPHONE
+  // =====================================================
+
+  async verifyLoginOtp(req, res, next) {
+    try {
+      let { phone, otp } = req.body;
+      
+      if (!phone) {
+        return res.status(400).json({ 
+          error: 'Le numéro de téléphone est requis',
+          field: 'phone'
+        });
+      }
+      
+      if (!otp) {
+        return res.status(400).json({ 
+          error: 'Le code OTP est requis',
+          field: 'otp'
+        });
+      }
+      
+      console.log('🔍 Vérification OTP connexion:', { phone });
+      
+      const user = await User.findOne({ where: { phone: phone } });
+      
+      if (!user) {
+        console.log('❌ Utilisateur non trouvé pour:', phone);
+        return res.status(401).json({ 
+          error: 'Aucun compte associé à ce numéro',
+          field: 'phone'
+        });
+      }
+      
+      // Vérifier l'OTP
+      try {
+        await otpService.verifyOtp(phone, user.otp_channel || 'sms', otp, 'login');
+      } catch (otpError) {
+        console.log('❌ OTP invalide pour:', phone);
+        return res.status(401).json({ 
+          error: 'Code OTP incorrect ou expiré',
+          field: 'otp',
+          suggestion: 'Vérifiez votre code ou demandez un nouveau code'
+        });
+      }
+      
+      console.log('✅ OTP valide, connexion réussie pour:', phone);
+      
       await user.update({
         last_login_at: new Date(),
         last_login_ip: req.ip || req.connection.remoteAddress
@@ -348,8 +388,6 @@ class AuthController {
         id: user.id,
         phone: user.phone
       });
-      
-      console.log('✅ Connexion réussie pour:', phone);
       
       res.json({
         success: true,
@@ -373,13 +411,127 @@ class AuthController {
         refreshToken
       });
     } catch (error) {
-      console.error('❌ Erreur login:', error);
+      console.error('❌ Erreur vérification OTP connexion:', error);
       next(error);
     }
   }
 
   // =====================================================
-  // 🔑 OTP GÉNÉRIQUE
+  // 🔐 VÉRIFICATION OTP ET CONNEXION PAR EMAIL
+  // =====================================================
+
+  async loginWithOtp(req, res, next) {
+    try {
+      let { email, otp } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          error: 'L\'email est requis',
+          field: 'email'
+        });
+      }
+      
+      if (!otp) {
+        return res.status(400).json({ 
+          error: 'Le code OTP est requis',
+          field: 'otp'
+        });
+      }
+      
+      console.log('🔍 Tentative de connexion OTP:', { email });
+      
+      // Trouver l'utilisateur par email
+      const user = await User.findOne({ where: { email: email } });
+      
+      if (!user) {
+        console.log('❌ Utilisateur non trouvé pour:', email);
+        return res.status(401).json({ 
+          error: 'Aucun compte associé à cet email',
+          field: 'email',
+          suggestion: 'Vérifiez votre email ou inscrivez-vous'
+        });
+      }
+      
+      console.log('✅ Utilisateur trouvé:', { id: user.id, email: user.email });
+      
+      // Vérifier l'OTP pour cet utilisateur
+      try {
+        await otpService.verifyOtp(email, 'email', otp, 'login');
+      } catch (otpError) {
+        console.log('❌ OTP invalide pour:', email);
+        return res.status(401).json({ 
+          error: 'Code OTP incorrect ou expiré',
+          field: 'otp',
+          suggestion: 'Vérifiez votre code ou demandez un nouveau code'
+        });
+      }
+      
+      console.log('✅ OTP valide');
+      
+      if (!user.is_active) {
+        return res.status(403).json({ 
+          error: 'Ce compte est désactivé',
+          suggestion: 'Contactez le support pour réactiver votre compte'
+        });
+      }
+      
+      if (user.is_blocked) {
+        return res.status(403).json({ 
+          error: 'Ce compte est bloqué',
+          reason: user.blocked_reason || 'Violation des conditions d\'utilisation',
+          suggestion: 'Contactez le support pour plus d\'informations'
+        });
+      }
+      
+      await user.update({
+        last_login_at: new Date(),
+        last_login_ip: req.ip || req.connection.remoteAddress
+      });
+      
+      const token = jwtService.generateToken({
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role
+      });
+      
+      const refreshToken = jwtService.generateRefreshToken({
+        id: user.id,
+        email: user.email,
+        phone: user.phone
+      });
+      
+      console.log('✅ Connexion OTP réussie pour:', email);
+      
+      res.json({
+        success: true,
+        message: 'Connexion réussie',
+        user: {
+          id: user.id,
+          phone: user.phone,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role,
+          avatar_url: user.avatar_url,
+          cover_url: user.cover_url,
+          is_active: user.is_active,
+          is_verified: user.is_verified,
+          rating: user.rating,
+          total_rides: user.total_rides,
+          created_at: user.created_at
+        },
+        token,
+        refreshToken
+      });
+    } catch (error) {
+      console.error('❌ Erreur connexion OTP:', error);
+      next(error);
+    }
+  }
+
+  // =====================================================
+  // �� OTP GÉNÉRIQUE
   // =====================================================
 
   async requestOtp(req, res, next) {

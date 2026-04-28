@@ -281,16 +281,31 @@ const userValidator = {
     otp_channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
   }),
 
-  // Étape 3: Compléter l'inscription
+  // Étape 3: Compléter l'inscription (mot de passe optionnel)
   completeRegistration: Joi.object({
     tempToken: Joi.string().required(),
     email: Joi.string().email().optional(),
-    password: Joi.string().min(6).max(100).required(),
+    password: Joi.alternatives().try(
+  Joi.string().min(6).max(100),
+  Joi.string().allow('')
+).optional(), // Soit mot de passe valide (6+ chars), soit vide
     first_name: Joi.string().max(100).required(),
     last_name: Joi.string().max(100).required(),
     emergency_contact_name: Joi.string().max(100).optional(),
     emergency_contact_phone: phoneSchema.optional(),
-    birth_date: Joi.date().iso().optional()  // ← Ajoutez cette ligne
+    birth_date: Joi.date().iso().optional()
+  }),
+
+  // Connexion OTP (nouveau)
+  loginOtp: Joi.object({
+    email: Joi.string().email().required(),
+    otp: Joi.string().pattern(/^\d{4,8}$/).required()
+  }),
+
+  // Vérification OTP connexion par téléphone (nouveau)
+  verifyLoginOtp: Joi.object({
+    phone: phoneSchema.required(),
+    otp: Joi.string().pattern(/^\d{4,8}$/).required()
   }),
 
   // Étape 2 reset: Vérifier OTP pour reset password
@@ -304,10 +319,9 @@ const userValidator = {
   // CONNEXION & AUTRES
   // =====================================================
   
-  // Connexion
+  // Connexion (OTP par téléphone)
   login: Joi.object({
-    phone: phoneSchema.required(),
-    password: Joi.string().required()
+    phone: phoneSchema.required()
   }),
 
   // Mise à jour profil
