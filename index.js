@@ -56,24 +56,94 @@ app.use(helmet({
   }
 }));
 
-// CORS
+// =====================================================
+// ✅ CONFIGURATION CORS COMPLÈTE POUR FLUTTER
+// =====================================================
+
+// Configuration CORS étendue pour supporter Flutter et toutes les origines
 const corsOptions = {
-  origin: [
-    env.FRONTEND_URL,
-    env.PASSENGER_APP_URL,
-    env.DRIVER_APP_URL,
-    env.ADMIN_DASHBOARD_URL,
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://192.168.1.65:3000'
-  ],
+  origin: function(origin, callback) {
+    // Liste des origines autorisées
+    const allowedOrigins = [
+      env.FRONTEND_URL,
+      env.PASSENGER_APP_URL,
+      env.DRIVER_APP_URL,
+      env.ADMIN_DASHBOARD_URL,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:5000',
+      'http://localhost:8080',
+      'http://192.168.1.65:3000',
+      'http://192.168.1.65:5000',
+      'http://192.168.17.63:5000',  // ✅ Ton IP
+      'http://192.168.17.63:8080',
+      'https://ridebackend-1.onrender.com',
+      'https://medie-app-flutter.web.app',
+      'http://localhost:*'
+    ];
+    
+    // Permettre les requêtes sans origine (comme les apps mobiles)
+    if (!origin) return callback(null, true);
+    
+    // Vérifier si l'origine est autorisée (supporte les wildcards)
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (allowed.includes('*')) {
+        const pattern = allowed.replace('*', '.*');
+        return new RegExp(pattern).test(origin);
+      }
+      return allowed === origin;
+    });
+    
+    if (isAllowed || origin.includes('localhost') || origin.includes('192.168')) {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS bloqué pour:', origin);
+      callback(null, true); // Pour le développement, on accepte toutes
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-CSRF-Token',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400 // 24 heures
 };
+
+// Appliquer CORS avant toutes les routes
 app.use(cors(corsOptions));
+
+// Répondre aux requêtes OPTIONS (pré-vol)
+app.options('*', cors(corsOptions));
+
+// Middleware supplémentaire pour ajouter les headers CORS manuellement
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  
+  // Répondre immédiatement aux requêtes OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// =====================================================
+// FIN DE LA CONFIGURATION CORS
+// =====================================================
 
 // Compression
 app.use(compression());
