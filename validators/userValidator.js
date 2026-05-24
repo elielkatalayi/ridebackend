@@ -15,228 +15,40 @@ const validateInternationalPhone = (value, helpers) => {
   // Pattern pour les numéros locaux avec 0 (certains pays)
   const localPattern = /^0\d{7,12}$/;
   
-  // Liste des indicatifs de pays valides (tous les pays)
+  // Liste des indicatifs de pays valides
   const validCountryCodes = [
-    '1',   // USA, Canada
-    '7',   // Russie, Kazakhstan
-    '20',  // Égypte
-    '27',  // Afrique du Sud
-    '30',  // Grèce
-    '31',  // Pays-Bas
-    '32',  // Belgique
-    '33',  // France
-    '34',  // Espagne
-    '36',  // Hongrie
-    '39',  // Italie
-    '40',  // Roumanie
-    '41',  // Suisse
-    '43',  // Autriche
-    '44',  // Royaume-Uni
-    '45',  // Danemark
-    '46',  // Suède
-    '47',  // Norvège
-    '48',  // Pologne
-    '49',  // Allemagne
-    '51',  // Pérou
-    '52',  // Mexique
-    '53',  // Cuba
-    '54',  // Argentine
-    '55',  // Brésil
-    '56',  // Chili
-    '57',  // Colombie
-    '58',  // Venezuela
-    '60',  // Malaisie
-    '61',  // Australie
-    '62',  // Indonésie
-    '63',  // Philippines
-    '64',  // Nouvelle-Zélande
-    '65',  // Singapour
-    '66',  // Thaïlande
-    '81',  // Japon
-    '82',  // Corée du Sud
-    '84',  // Viêt Nam
-    '86',  // Chine
-    '90',  // Turquie
-    '91',  // Inde
-    '92',  // Pakistan
-    '93',  // Afghanistan
-    '94',  // Sri Lanka
-    '95',  // Myanmar
-    '98',  // Iran
-    '212', // Maroc
-    '213', // Algérie
-    '216', // Tunisie
-    '218', // Libye
-    '220', // Gambie
-    '221', // Sénégal
-    '222', // Mauritanie
-    '223', // Mali
-    '224', // Guinée
-    '225', // Côte d'Ivoire
-    '226', // Burkina Faso
-    '227', // Niger
-    '228', // Togo
-    '229', // Bénin
-    '230', // Maurice
-    '231', // Liberia
-    '232', // Sierra Leone
-    '233', // Ghana
-    '234', // Nigeria
-    '235', // Tchad
-    '236', // République Centrafricaine
-    '237', // Cameroun
-    '238', // Cap-Vert
-    '239', // São Tomé et Príncipe
-    '240', // Guinée équatoriale
-    '241', // Gabon
-    '242', // République du Congo
-    '243', // République Démocratique du Congo (RDC)
-    '244', // Angola
-    '245', // Guinée-Bissau
-    '246', // Diego Garcia
-    '247', // Ascension
-    '248', // Seychelles
-    '249', // Soudan
-    '250', // Rwanda
-    '251', // Éthiopie
-    '252', // Somalie
-    '253', // Djibouti
-    '254', // Kenya
-    '255', // Tanzanie
-    '256', // Ouganda
-    '257', // Burundi
-    '258', // Mozambique
-    '259', // Zanzibar
-    '260', // Zambie
-    '261', // Madagascar
-    '262', // Réunion, Mayotte
-    '263', // Zimbabwe
-    '264', // Namibie
-    '265', // Malawi
-    '266', // Lesotho
-    '267', // Botswana
-    '268', // Swaziland
-    '269', // Comores
-    '290', // Sainte-Hélène
-    '291', // Érythrée
-    '297', // Aruba
-    '298', // Îles Féroé
-    '299', // Groenland
-    '350', // Gibraltar
-    '351', // Portugal
-    '352', // Luxembourg
-    '353', // Irlande
-    '354', // Islande
-    '355', // Albanie
-    '356', // Malte
-    '357', // Chypre
-    '358', // Finlande
-    '359', // Bulgarie
-    '370', // Lituanie
-    '371', // Lettonie
-    '372', // Estonie
-    '373', // Moldavie
-    '374', // Arménie
-    '375', // Biélorussie
-    '376', // Andorre
-    '377', // Monaco
-    '378', // Saint-Marin
-    '379', // Vatican
-    '380', // Ukraine
-    '381', // Serbie
-    '382', // Monténégro
-    '383', // Kosovo
-    '385', // Croatie
-    '386', // Slovénie
-    '387', // Bosnie-Herzégovine
-    '389', // Macédoine du Nord
-    '420', // République tchèque
-    '421', // Slovaquie
-    '423', // Liechtenstein
-    '500', // Îles Malouines
-    '501', // Belize
-    '502', // Guatemala
-    '503', // Salvador
-    '504', // Honduras
-    '505', // Nicaragua
-    '506', // Costa Rica
-    '507', // Panama
-    '508', // Saint-Pierre-et-Miquelon
-    '509', // Haïti
-    '590', // Guadeloupe
-    '591', // Bolivie
-    '592', // Guyana
-    '593', // Équateur
-    '594', // Guyane française
-    '595', // Paraguay
-    '596', // Martinique
-    '597', // Suriname
-    '598', // Uruguay
-    '599', // Antilles néerlandaises
-    '670', // Timor oriental
-    '672', // Territoires australiens
-    '673', // Brunéi
-    '674', // Nauru
-    '675', // Papouasie-Nouvelle-Guinée
-    '676', // Tonga
-    '677', // Îles Salomon
-    '678', // Vanuatu
-    '679', // Fidji
-    '680', // Palaos
-    '681', // Wallis-et-Futuna
-    '682', // Îles Cook
-    '683', // Niue
-    '685', // Samoa
-    '686', // Kiribati
-    '687', // Nouvelle-Calédonie
-    '688', // Tuvalu
-    '689', // Polynésie française
-    '690', // Tokelau
-    '691', // Micronésie
-    '692', // Îles Marshall
-    '850', // Corée du Nord
-    '852', // Hong Kong
-    '853', // Macao
-    '855', // Cambodge
-    '856', // Laos
-    '880', // Bangladesh
-    '886', // Taïwan
-    '960', // Maldives
-    '961', // Liban
-    '962', // Jordanie
-    '963', // Syrie
-    '964', // Irak
-    '965', // Koweït
-    '966', // Arabie saoudite
-    '967', // Yémen
-    '968', // Oman
-    '969', // Yémen du Sud
-    '970', // Palestine
-    '971', // Émirats arabes unis
-    '972', // Israël
-    '973', // Bahreïn
-    '974', // Qatar
-    '975', // Bhoutan
-    '976', // Mongolie
-    '977', // Népal
-    '992', // Tadjikistan
-    '993', // Turkménistan
-    '994', // Azerbaïdjan
-    '995', // Géorgie
-    '996', // Kirghizistan
-    '998'  // Ouzbékistan
+    '1', '7', '20', '27', '30', '31', '32', '33', '34', '36', '39', '40', '41', '43', '44', '45', '46', '47', '48', '49',
+    '51', '52', '53', '54', '55', '56', '57', '58', '60', '61', '62', '63', '64', '65', '66', '81', '82', '84', '86', '90',
+    '91', '92', '93', '94', '95', '98', '212', '213', '216', '218', '220', '221', '222', '223', '224', '225', '226', '227',
+    '228', '229', '230', '231', '232', '233', '234', '235', '236', '237', '238', '239', '240', '241', '242', '243', '244',
+    '245', '246', '247', '248', '249', '250', '251', '252', '253', '254', '255', '256', '257', '258', '259', '260', '261',
+    '262', '263', '264', '265', '266', '267', '268', '269', '290', '291', '297', '298', '299', '350', '351', '352', '353',
+    '354', '355', '356', '357', '358', '359', '370', '371', '372', '373', '374', '375', '376', '377', '378', '379', '380',
+    '381', '382', '383', '385', '386', '387', '389', '420', '421', '423', '500', '501', '502', '503', '504', '505', '506',
+    '507', '508', '509', '590', '591', '592', '593', '594', '595', '596', '597', '598', '599', '670', '672', '673', '674',
+    '675', '676', '677', '678', '679', '680', '681', '682', '683', '685', '686', '687', '688', '689', '690', '691', '692',
+    '850', '852', '853', '855', '856', '880', '886', '960', '961', '962', '963', '964', '965', '966', '967', '968', '969',
+    '970', '971', '972', '973', '974', '975', '976', '977', '992', '993', '994', '995', '996', '998'
   ];
   
   // Si le numéro est au format international
   if (internationalPattern.test(cleaned)) {
-    const countryCode = cleaned.substring(1).split('')[0];
     // Vérifier si l'indicatif est valide
-    const isValid = validCountryCodes.some(code => {
-      if (code.length === 1) return cleaned.substring(1, 2) === code;
-      if (code.length === 2) return cleaned.substring(1, 3) === code;
-      if (code.length === 3) return cleaned.substring(1, 4) === code;
-      return false;
-    });
+    let isValid = false;
+    for (const code of validCountryCodes) {
+      if (code.length === 1 && cleaned.substring(1, 2) === code) {
+        isValid = true;
+        break;
+      }
+      if (code.length === 2 && cleaned.substring(1, 3) === code) {
+        isValid = true;
+        break;
+      }
+      if (code.length === 3 && cleaned.substring(1, 4) === code) {
+        isValid = true;
+        break;
+      }
+    }
     
     if (!isValid) {
       return helpers.error('any.invalid', { message: 'Indicatif de pays invalide' });
@@ -246,12 +58,10 @@ const validateInternationalPhone = (value, helpers) => {
   
   // Si le numéro est au format local (commence par 0)
   if (localPattern.test(cleaned)) {
-    // Accepter les numéros locaux (ils seront formatés par le backend)
     return cleaned;
   }
   
   // Si le numéro n'a pas de format international ni local
-  // Vérifier si c'est juste des chiffres (pourrait être un numéro local sans 0)
   const digitsOnly = cleaned.replace(/[^0-9]/g, '');
   if (digitsOnly.length >= 8 && digitsOnly.length <= 12) {
     return digitsOnly;
@@ -263,159 +73,233 @@ const validateInternationalPhone = (value, helpers) => {
 // Schéma personnalisé pour les numéros de téléphone
 const phoneSchema = Joi.string().custom(validateInternationalPhone, 'Validation téléphone international');
 
-const userValidator = {
-  // =====================================================
-  // INSCRIPTION (3 ÉTAPES)
-  // =====================================================
+// =====================================================
+// 🔐 VALIDATEURS POUR FRONTEND FLUTTER
+// =====================================================
+
+/**
+ * Envoyer OTP - POST /api/v1/auth/send-otp
+ * Le frontend envoie: { phone, channel? }
+ */
+const sendOtp = Joi.object({
+  phone: phoneSchema.required(),
+  channel: Joi.string().valid('sms', 'whatsapp', 'email').default('sms')
+});
+
+/**
+ * Vérifier OTP - POST /api/v1/auth/verify-otp
+ * Le frontend envoie: { verification_id, otp_code }
+ */
+const verifyOtp = Joi.object({
+  verification_id: Joi.string().required(),
+  otp_code: Joi.string().pattern(/^\d{4,8}$/).required()
+});
+
+/**
+ * Compléter le profil - POST /api/v1/auth/edit-profile
+ * Le frontend envoie: { first_name, last_name, email?, birth_date?, emergency_contact_name?, emergency_contact_phone? }
+ */
+const editProfile = Joi.object({
+  first_name: Joi.string().min(2).max(50).required(),
+  last_name: Joi.string().min(2).max(50).required(),
+  email: Joi.string().email().optional(),
+  birth_date: Joi.date().iso().optional(),
+  emergency_contact_name: Joi.string().max(100).optional(),
+  emergency_contact_phone: phoneSchema.optional()
+});
+
+/**
+ * Rafraîchir token - POST /api/v1/auth/refresh-token
+ * Le frontend envoie: { refreshToken }
+ */
+const refreshTokenBody = Joi.object({
+  refreshToken: Joi.string().required()
+});
+
+/**
+ * Initier changement de numéro - POST /api/v1/auth/initiate-phone-change
+ * Le frontend envoie: { new_phone }
+ */
+const initiatePhoneChange = Joi.object({
+  new_phone: phoneSchema.required()
+});
+
+/**
+ * Vérifier changement de numéro - POST /api/v1/auth/verify-phone-change
+ * Le frontend envoie: { phoneChangeId, new_phone_otp }
+ */
+const verifyPhoneChange = Joi.object({
+  phoneChangeId: Joi.string().required(),  // ✅ accepte UUID ou string
+  new_phone_otp: Joi.string().pattern(/^\d{4,8}$/).required()
+});
+
+// =====================================================
+// 🔧 VALIDATEURS POUR LES AUTRES ROUTES (COMPATIBILITÉ)
+// =====================================================
+
+// Étape 1: Demander OTP (ancienne version)
+const requestRegisterOtp = Joi.object({
+  phone: phoneSchema.required(),
+  channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
+});
+
+// Étape 2: Vérifier OTP seulement (ancienne version)
+const verifyOtpOnly = Joi.object({
+  phone: phoneSchema.required(),
+  otpId: Joi.string().required(),
+  code: Joi.string().pattern(/^\d{4,8}$/).required(),
+  otp_channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
+});
+
+// Étape 3: Compléter l'inscription (ancienne version)
+const completeRegistration = Joi.object({
+  email: Joi.string().email().optional(),
+  password: Joi.alternatives().try(
+    Joi.string().min(6).max(100),
+    Joi.string().allow('')
+  ).optional(),
+  first_name: Joi.string().max(100).required(),
+  last_name: Joi.string().max(100).required(),
+  emergency_contact_name: Joi.string().max(100).optional(),
+  emergency_contact_phone: phoneSchema.optional(),
+  birth_date: Joi.date().iso().optional()
+});
+
+// Connexion classique
+const login = Joi.object({
+  phone: phoneSchema.required(),
+  channel: Joi.string().default('sms')
+});
+
+// Connexion OTP par email
+const loginOtp = Joi.object({
+  email: Joi.string().email().required(),
+  otp: Joi.string().pattern(/^\d{4,8}$/).required()
+});
+
+// Vérification OTP connexion
+const verifyLoginOtp = Joi.object({
+  phone: phoneSchema.required(),
+  otpId: Joi.string().required(),
+  code: Joi.string().pattern(/^\d{4,8}$/).required(),
+  otp_channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
+});
+
+// OTP générique
+const requestOtp = Joi.object({
+  destination: Joi.string().required(),
+  channel: Joi.string().valid('sms', 'whatsapp', 'email').default('sms'),
+  purpose: Joi.string().valid('verification', 'login', 'reset_password', 'payment', 'register').default('verification')
+});
+
+// Vérification OTP générique
+const verifyOtpGeneric = Joi.object({
+  destination: Joi.string().required(),
+  channel: Joi.string().valid('sms', 'whatsapp', 'email').default('sms'),
+  code: Joi.string().pattern(/^\d{4,8}$/).required(),
+  purpose: Joi.string().valid('verification', 'login', 'reset_password', 'payment', 'register').default('verification')
+});
+
+// Mise à jour profil
+const updateProfile = Joi.object({
+  first_name: Joi.string().max(100).optional(),
+  last_name: Joi.string().max(100).optional(),
+  email: Joi.string().email().optional(),
+  avatar_url: Joi.string().uri().optional(),
+  emergency_contact_name: Joi.string().max(100).optional(),
+  emergency_contact_phone: phoneSchema.optional(),
+  otp_channel: Joi.string().valid('sms', 'email', 'whatsapp', 'telegram').optional(),
+  birth_date: Joi.date().iso().optional()
+});
+
+// Changement de mot de passe
+const changePassword = Joi.object({
+  current_password: Joi.string().required(),
+  new_password: Joi.string().min(6).max(100).required()
+});
+
+// Forgot password
+const forgotPassword = Joi.object({
+  phone: phoneSchema.required()
+});
+
+// Reset password
+const resetPassword = Joi.object({
+  phone: phoneSchema.required(),
+  code: Joi.string().pattern(/^\d{4,8}$/).required(),
+  new_password: Joi.string().min(6).max(100).required()
+});
+
+// Refresh token
+const refreshToken = Joi.object({
+  refreshToken: Joi.string().required()
+});
+
+// ID utilisateur (params)
+const userId = Joi.object({
+  userId: Joi.string().uuid().required()
+});
+
+// Vérification email
+const verifyEmail = Joi.object({
+  code: Joi.string().length(6).required(),
+  email: Joi.string().email().required()
+});
+
+// Changer rôle utilisateur
+const changeUserRole = Joi.object({
+  role: Joi.string().valid('passenger', 'driver', 'admin', 'moderator').required()
+});
+
+// Bloquer utilisateur
+const blockUser = Joi.object({
+  reason: Joi.string().min(5).max(255).required(),
+  days: Joi.number().integer().min(1).max(365).optional()
+});
+
+// Supprimer utilisateur (params)
+const deleteUser = Joi.object({
+  userId: Joi.string().uuid().required()
+});
+
+// Annuler changement de numéro
+const cancelPhoneChange = Joi.object({
+  phoneChangeId: Joi.string().uuid().required()
+});
+
+// =====================================================
+// 📤 EXPORTS
+// =====================================================
+
+module.exports = {
+  // Pour frontend Flutter
+  sendOtp,
+  verifyOtp,
+  editProfile,
+  refreshTokenBody,
+  initiatePhoneChange,
+  verifyPhoneChange,
   
-  // Étape 1: Demander OTP
-  requestRegisterOtp: Joi.object({
-    phone: phoneSchema.required(),
-    channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
-  }),
-
-  // Étape 2: Vérifier OTP seulement
-  verifyOtpOnly: Joi.object({
-    phone: phoneSchema.required(),
-    code: Joi.string().pattern(/^\d{4,8}$/).required(),
-    otp_channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
-  }),
-
-  // Étape 3: Compléter l'inscription (mot de passe optionnel)
-  completeRegistration: Joi.object({
-    tempToken: Joi.string().required(),
-    email: Joi.string().email().optional(),
-    password: Joi.alternatives().try(
-  Joi.string().min(6).max(100),
-  Joi.string().allow('')
-).optional(), // Soit mot de passe valide (6+ chars), soit vide
-    first_name: Joi.string().max(100).required(),
-    last_name: Joi.string().max(100).required(),
-    emergency_contact_name: Joi.string().max(100).optional(),
-    emergency_contact_phone: phoneSchema.optional(),
-    birth_date: Joi.date().iso().optional()
-  }),
-
-  // Connexion OTP (nouveau)
-  loginOtp: Joi.object({
-    email: Joi.string().email().required(),
-    otp: Joi.string().pattern(/^\d{4,8}$/).required()
-  }),
-
-  // Vérification OTP connexion par téléphone (nouveau)
-  verifyLoginOtp: Joi.object({
-    phone: phoneSchema.required(),
-    otp: Joi.string().pattern(/^\d{4,8}$/).required()
-  }),
-
-  // Étape 2 reset: Vérifier OTP pour reset password
-  verifyResetOtp: Joi.object({
-    phone: phoneSchema.required(),
-    code: Joi.string().pattern(/^\d{4,8}$/).required(),
-    otp_channel: Joi.string().valid('sms', 'whatsapp', 'email', 'telegram').default('sms')
-  }),
-
-  // =====================================================
-  // CONNEXION & AUTRES
-  // =====================================================
-  
-  // Connexion (OTP par téléphone)
-  login: Joi.object({
-    phone: phoneSchema.required()
-  }),
-
-  // Mise à jour profil
-  updateProfile: Joi.object({
-    first_name: Joi.string().max(100).optional(),
-    last_name: Joi.string().max(100).optional(),
-    email: Joi.string().email().optional(),
-    avatar_url: Joi.string().uri().optional(),
-    emergency_contact_name: Joi.string().max(100).optional(),
-    emergency_contact_phone: phoneSchema.optional(),
-    otp_channel: Joi.string().valid('sms', 'email', 'whatsapp', 'telegram').optional(),
-    birth_date: Joi.date().iso().optional()
-  }),
-
-  // Changement de mot de passe
-  changePassword: Joi.object({
-    current_password: Joi.string().required(),
-    new_password: Joi.string().min(6).max(100).required()
-  }),
-
-  // OTP
-  requestOtp: Joi.object({
-    destination: Joi.string().required(),
-    channel: Joi.string().valid('sms', 'email', 'whatsapp', 'telegram').required(),
-    purpose: Joi.string().valid('verification', 'login', 'reset_password', 'payment', 'register').default('verification')
-  }),
-
-  verifyOtp: Joi.object({
-    destination: Joi.string().required(),
-    channel: Joi.string().valid('sms', 'email', 'whatsapp', 'telegram').required(),
-    code: Joi.string().pattern(/^\d{4,8}$/).required(),
-    purpose: Joi.string().valid('verification', 'login', 'reset_password', 'payment', 'register').default('verification')
-  }),
-
-  // Réinitialisation mot de passe
-  forgotPassword: Joi.object({
-    phone: phoneSchema.required()
-  }),
-
-  resetPassword: Joi.object({
-    phone: phoneSchema.required(),
-    code: Joi.string().pattern(/^\d{4,8}$/).required(),
-    new_password: Joi.string().min(6).max(100).required()
-  }),
-
-  // Refresh token
-  refreshToken: Joi.object({
-    refreshToken: Joi.string().required()
-  }),
-
-  // ID utilisateur
-  userId: Joi.object({
-    userId: Joi.string().uuid().required()
-  }),
-
-  // Vérification email
-  verifyEmail: Joi.object({
-    code: Joi.string().length(6).required(),
-    email: Joi.string().email().required()
-  }),
-
-  // Changer le rôle d'un utilisateur (admin)
-  changeUserRole: Joi.object({
-    role: Joi.string().valid('passenger', 'driver', 'admin', 'moderator').required()
-  }),
-
-  // Récupérer utilisateur par ID (params)
-  getUserById: Joi.object({
-    userId: Joi.string().uuid().required()
-  }),
-
-  // Bloquer un utilisateur
-  blockUser: Joi.object({
-    reason: Joi.string().min(5).max(255).required(),
-    days: Joi.number().integer().min(1).max(365).optional()
-  }),
-
-  // Supprimer utilisateur (params)
-  deleteUser: Joi.object({
-    userId: Joi.string().uuid().required()
-  }),
-
-  // Inscription (ancienne, à garder pour compatibilité)
-  register: Joi.object({
-    phone: phoneSchema.required(),
-    email: Joi.string().email().optional(),
-    password: Joi.string().min(6).max(100).required(),
-    first_name: Joi.string().max(100).optional(),
-    last_name: Joi.string().max(100).optional(),
-    otp_channel: Joi.string().valid('sms', 'email', 'whatsapp', 'telegram').default('sms'),
-    emergency_contact_name: Joi.string().max(100).optional(),
-    emergency_contact_phone: phoneSchema.optional()
-  })
+  // Anciens validateurs (compatibilité)
+  requestRegisterOtp,
+  verifyOtpOnly,
+  completeRegistration,
+  login,
+  loginOtp,
+  verifyLoginOtp,
+  requestOtp,
+  verifyOtp: verifyOtpGeneric,  // Note: renommé pour éviter conflit
+  updateProfile,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  refreshToken,
+  userId,
+  verifyEmail,
+  changeUserRole,
+  blockUser,
+  deleteUser,
+  cancelPhoneChange
 };
 
-module.exports = userValidator;
 

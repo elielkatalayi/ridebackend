@@ -229,7 +229,7 @@ try {
   if (postRoutes) router.use('/posts', postRoutes);
   if (interactionRoutes) router.use('/interactions', interactionRoutes);
   if (viralRoutes) router.use('/viral', viralRoutes);
-  if (chatRoutes) router.use('/chat', chatRoutes);   
+  if (chatRoutes) router.use('/chats', chatRoutes);   
   if (storyRoutes) router.use('/stories', storyRoutes);
   if (noteRoutes) router.use('/note', noteRoutes);
   if (adRoutes) router.use('/advertising', adRoutes);

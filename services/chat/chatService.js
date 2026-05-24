@@ -115,107 +115,107 @@ class ChatService {
             throw error;
         }
     }
-    
-async getUserChats(userId, options = {}) {
-    const { limit = 50, offset = 0 } = options;
-    
-    try {
-        // ✅ APPROCHE 1 : Utiliser une requête raw SQL (plus fiable)
-        const query = `
-            SELECT 
-                c.id,
-                c.chat_type,
-                c.name,
-                c.avatar_url,
-                c.description,
-                c.created_by,
-                c.is_public,
-                c.join_type,
-                c.member_count,
-                c.message_count,
-                c.settings,
-                c.is_active,
-                c.is_deleted,
-                c.created_at,
-                c.updated_at,
-                cp.role as user_role,
-                cp.is_muted,
-                cp.notifications_enabled,
-                cp.last_read_at,
-                -- Dernier message
-                cm.content as last_message,
-                cm.created_at as last_message_at,
-                cm.sender_id as last_message_sender_id,
-                -- Autre participant (pour les chats privés)
-                other_user.id as other_user_id,
-                other_user.first_name as other_first_name,
-                other_user.last_name as other_last_name,
-                other_user.avatar_url as other_avatar
-            FROM chat_participants cp
-            INNER JOIN chats c ON cp.chat_id = c.id AND c.is_deleted = false
-            LEFT JOIN LATERAL (
-                SELECT content, created_at, sender_id
-                FROM chat_messages 
-                WHERE chat_id = c.id 
-                ORDER BY created_at DESC 
-                LIMIT 1
-            ) cm ON true
-            LEFT JOIN chat_participants other_cp 
-                ON c.id = other_cp.chat_id 
-                AND other_cp.user_id != cp.user_id
-                AND other_cp.left_at IS NULL
-            LEFT JOIN users other_user ON other_cp.user_id = other_user.id
-            WHERE cp.user_id = :userId 
-                AND cp.left_at IS NULL
-            ORDER BY cm.created_at DESC NULLS LAST
-            LIMIT :limit OFFSET :offset
-        `;
         
-        const chats = await sequelize.query(query, {
-            replacements: { userId, limit, offset },
-            type: QueryTypes.SELECT
-        });
+    async getUserChats(userId, options = {}) {
+        const { limit = 50, offset = 0 } = options;
         
-        // Formater les résultats
-        const formattedChats = chats.map(chat => ({
-            id: chat.id,
-            chat_type: chat.chat_type,
-            name: chat.chat_type === 'private' 
-                ? (chat.other_first_name ? `${chat.other_first_name} ${chat.other_last_name}` : null)
-                : chat.name,
-            avatar_url: chat.chat_type === 'private' ? chat.other_avatar : chat.avatar_url,
-            description: chat.description,
-            created_by: chat.created_by,
-            is_public: chat.is_public,
-            join_type: chat.join_type,
-            member_count: chat.member_count,
-            message_count: chat.message_count,
-            settings: chat.settings,
-            is_active: chat.is_active,
-            created_at: chat.created_at,
-            updated_at: chat.updated_at,
-            last_message: chat.last_message,
-            last_message_at: chat.last_message_at,
-            last_message_sender_id: chat.last_message_sender_id,
-            user_role: chat.user_role,
-            is_muted: chat.is_muted,
-            notifications_enabled: chat.notifications_enabled,
-            unread_count: chat.last_read_at < (chat.last_message_at || 0) ? 1 : 0,
-            participant: chat.other_user_id ? {
-                id: chat.other_user_id,
-                first_name: chat.other_first_name,
-                last_name: chat.other_last_name,
-                avatar_url: chat.other_avatar
-            } : null
-        }));
-        
-        return formattedChats;
-        
-    } catch (error) {
-        console.error('Erreur getUserChats:', error);
-        throw error;
+        try {
+            // ✅ APPROCHE 1 : Utiliser une requête raw SQL (plus fiable)
+            const query = `
+                SELECT 
+                    c.id,
+                    c.chat_type,
+                    c.name,
+                    c.avatar_url,
+                    c.description,
+                    c.created_by,
+                    c.is_public,
+                    c.join_type,
+                    c.member_count,
+                    c.message_count,
+                    c.settings,
+                    c.is_active,
+                    c.is_deleted,
+                    c.created_at,
+                    c.updated_at,
+                    cp.role as user_role,
+                    cp.is_muted,
+                    cp.notifications_enabled,
+                    cp.last_read_at,
+                    -- Dernier message
+                    cm.content as last_message,
+                    cm.created_at as last_message_at,
+                    cm.sender_id as last_message_sender_id,
+                    -- Autre participant (pour les chats privés)
+                    other_user.id as other_user_id,
+                    other_user.first_name as other_first_name,
+                    other_user.last_name as other_last_name,
+                    other_user.avatar_url as other_avatar
+                FROM chat_participants cp
+                INNER JOIN chats c ON cp.chat_id = c.id AND c.is_deleted = false
+                LEFT JOIN LATERAL (
+                    SELECT content, created_at, sender_id
+                    FROM chat_messages 
+                    WHERE chat_id = c.id 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                ) cm ON true
+                LEFT JOIN chat_participants other_cp 
+                    ON c.id = other_cp.chat_id 
+                    AND other_cp.user_id != cp.user_id
+                    AND other_cp.left_at IS NULL
+                LEFT JOIN users other_user ON other_cp.user_id = other_user.id
+                WHERE cp.user_id = :userId 
+                    AND cp.left_at IS NULL
+                ORDER BY cm.created_at DESC NULLS LAST
+                LIMIT :limit OFFSET :offset
+            `;
+            
+            const chats = await sequelize.query(query, {
+                replacements: { userId, limit, offset },
+                type: QueryTypes.SELECT
+            });
+            
+            // Formater les résultats
+            const formattedChats = chats.map(chat => ({
+                id: chat.id,
+                chat_type: chat.chat_type,
+                name: chat.chat_type === 'private' 
+                    ? (chat.other_first_name ? `${chat.other_first_name} ${chat.other_last_name}` : null)
+                    : chat.name,
+                avatar_url: chat.chat_type === 'private' ? chat.other_avatar : chat.avatar_url,
+                description: chat.description,
+                created_by: chat.created_by,
+                is_public: chat.is_public,
+                join_type: chat.join_type,
+                member_count: chat.member_count,
+                message_count: chat.message_count,
+                settings: chat.settings,
+                is_active: chat.is_active,
+                created_at: chat.created_at,
+                updated_at: chat.updated_at,
+                last_message: chat.last_message,
+                last_message_at: chat.last_message_at,
+                last_message_sender_id: chat.last_message_sender_id,
+                user_role: chat.user_role,
+                is_muted: chat.is_muted,
+                notifications_enabled: chat.notifications_enabled,
+                unread_count: chat.last_read_at < (chat.last_message_at || 0) ? 1 : 0,
+                participant: chat.other_user_id ? {
+                    id: chat.other_user_id,
+                    first_name: chat.other_first_name,
+                    last_name: chat.other_last_name,
+                    avatar_url: chat.other_avatar
+                } : null
+            }));
+            
+            return formattedChats;
+            
+        } catch (error) {
+            console.error('Erreur getUserChats:', error);
+            throw error;
+        }
     }
-}
     
     async getChatById(chatId, userId) {
         const chat = await Chat.findOne({
@@ -242,7 +242,151 @@ async getUserChats(userId, options = {}) {
         
         return chat;
     }
-    
+  
+  // =====================================================
+  // 🔍 RECHERCHE DE MESSAGES
+  // =====================================================
+  
+  /**
+   * Rechercher des messages dans les chats de l'utilisateur
+   * @param {string} userId - ID de l'utilisateur
+   * @param {Object} options - Options de recherche
+   * @param {number} options.limit - Nombre de résultats
+   * @param {string} options.search - Terme de recherche
+   * @param {string} options.chatId - Filtrer par chat spécifique (optionnel)
+   * @returns {Promise<Array>} - Liste des messages trouvés
+   */
+  async searchMessages(userId, options = {}) {
+    try {
+      const { limit = 20, search = '', chatId = null } = options;
+      
+      if (!search || search.length < 2) {
+        return [];
+      }
+      
+      // 1. Récupérer tous les IDs des chats où l'utilisateur est membre
+      const userChats = await ChatParticipant.findAll({
+        where: {
+          user_id: userId,
+          left_at: null
+        },
+        attributes: ['chat_id']
+      });
+      
+      const chatIds = userChats.map(uc => uc.chat_id);
+      
+      if (chatIds.length === 0) {
+        return [];
+      }
+      
+      // 2. Filtrer par chatId spécifique si fourni
+      let targetChatIds = chatIds;
+      if (chatId) {
+        if (!chatIds.includes(chatId)) {
+          throw new Error('Vous n\'êtes pas membre de ce chat');
+        }
+        targetChatIds = [chatId];
+      }
+      
+      // 3. Rechercher les messages
+      const messages = await ChatMessage.findAll({
+        where: {
+          chat_id: {
+            [Op.in]: targetChatIds
+          },
+          [Op.or]: [
+            { content: { [Op.iLike]: `%${search}%` } },
+            { text: { [Op.iLike]: `%${search}%` } }
+          ],
+          is_deleted: false
+        },
+        include: [
+          {
+            model: User,
+            as: 'sender',
+            attributes: ['id', 'first_name', 'last_name', 'avatar_url', 'phone']
+          },
+          {
+            model: Chat,
+            as: 'chat',
+            attributes: ['id', 'name', 'type', 'avatar_url']
+          }
+        ],
+        order: [['created_at', 'DESC']],
+        limit: limit
+      });
+      
+      return messages;
+      
+    } catch (error) {
+      console.error('Erreur searchMessages:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Rechercher des chats par nom
+   * @param {string} userId - ID de l'utilisateur
+   * @param {string} searchTerm - Terme de recherche
+   * @returns {Promise<Array>} - Liste des chats trouvés
+   */
+  async searchChats(userId, searchTerm) {
+    try {
+      if (!searchTerm || searchTerm.length < 2) {
+        return [];
+      }
+      
+      // Récupérer les IDs des chats de l'utilisateur
+      const userChats = await ChatParticipant.findAll({
+        where: {
+          user_id: userId,
+          left_at: null
+        },
+        attributes: ['chat_id']
+      });
+      
+      const chatIds = userChats.map(uc => uc.chat_id);
+      
+      if (chatIds.length === 0) {
+        return [];
+      }
+      
+      // Rechercher les chats par nom
+      const chats = await Chat.findAll({
+        where: {
+          id: {
+            [Op.in]: chatIds
+          },
+          [Op.or]: [
+            { name: { [Op.iLike]: `%${searchTerm}%` } },
+            { description: { [Op.iLike]: `%${searchTerm}%` } }
+          ]
+        },
+        include: [
+          {
+            model: ChatParticipant,
+            as: 'participants',
+            include: [
+              {
+                model: User,
+                as: 'user',
+                attributes: ['id', 'first_name', 'last_name', 'avatar_url']
+              }
+            ]
+          }
+        ],
+        limit: 20
+      });
+      
+      return chats;
+      
+    } catch (error) {
+      console.error('Erreur searchChats:', error);
+      throw error;
+    }
+  }
+
+
     // =====================================================
     // GESTION DES MEMBRES
     // =====================================================

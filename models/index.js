@@ -31,7 +31,6 @@ const OtpCode = require('./OtpCode')(sequelize, Sequelize);
 
 
 
-// notification
 const Notification = require('./notification/Notification');
 const NotificationBatch = require('./notification/NotificationBatch');
 const UserDevice = require('./notification/UserDevice');
@@ -96,7 +95,16 @@ const VehicleAvailability = require('./rental/VehicleAvailability')(sequelize, S
 const VehicleBooking = require('./rental/VehicleBooking')(sequelize, Sequelize);
 const BookingReview = require('./rental/BookingReview')(sequelize, Sequelize);
 
-// models/index.js - Ajoutez ces associations après la définition des modèles
+const UserPhoneHistory = require('./UserPhoneHistory')(sequelize, Sequelize);
+const Otp = require('./Otp');
+
+// =====================================================
+// 📞 ASSOCIATIONS POUR USER PHONE HISTORY
+// =====================================================
+
+// User ↔ UserPhoneHistory (One-to-Many)
+User.hasMany(UserPhoneHistory, { foreignKey: 'user_id', as: 'phoneHistory' });
+UserPhoneHistory.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // Association Vehicle ↔ User (owner)
 Vehicle.belongsTo(User, { foreignKey: 'owner_id', as: 'owner' });
@@ -305,9 +313,7 @@ ChatTransfer.belongsTo(User, { foreignKey: 'transferred_by', as: 'transferredBy'
 Chat.hasMany(ChatTransfer, { foreignKey: 'chat_id', as: 'transfers' });
 
 // ChatUserStats
-ChatUserStats.belongsTo(Chat, { foreignKey: 'chat_id', as: 'chat' });
 ChatUserStats.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
-Chat.hasMany(ChatUserStats, { foreignKey: 'chat_id', as: 'userStats' });
 User.hasMany(ChatUserStats, { foreignKey: 'user_id', as: 'chatStats' });
 
 
@@ -429,6 +435,7 @@ module.exports = {
   Country,
   City,
   User,
+  UserPhoneHistory,
   Driver,
   Category,
   CityCategoryPricing,
@@ -509,5 +516,7 @@ module.exports = {
   Vehicle ,
   VehicleAvailability,
   VehicleBooking,
-  BookingReview
+  BookingReview,
+
+  Otp
 };

@@ -46,4 +46,4 @@ ChatUserStats.associate = (models) => {
     ChatUserStats.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
 };
 
-module.exports = ChatUserStats;
+module.exports = ChatUserStats;  

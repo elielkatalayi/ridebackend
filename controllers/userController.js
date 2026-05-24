@@ -21,7 +21,11 @@ class UserController {
       });
       
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false,
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Récupérer le wallet
@@ -37,10 +41,16 @@ class UserController {
       }
       
       res.json({
-        success: true,
-        user: user.toJSON(),
-        wallet: wallet ? { balance: wallet.balance, currency: wallet.currency } : null,
-        driver: driverInfo
+        state: true,
+        message: 'Profil récupéré avec succès',
+        datas: {
+          user: user.toJSON(),
+          wallet: wallet ? { 
+            balance: wallet.balance, 
+            currency: wallet.currency 
+          } : null,
+          driver: driverInfo
+        }
       });
     } catch (error) {
       next(error);
@@ -51,7 +61,7 @@ class UserController {
    * Mettre à jour le profil utilisateur
    * PUT /api/v1/users/profile ou /api/v1/users/me
    */
-async updateProfile(req, res, next) {
+  async updateProfile(req, res, next) {
     try {
       const { 
         first_name, 
@@ -60,12 +70,16 @@ async updateProfile(req, res, next) {
         emergency_contact_name, 
         emergency_contact_phone, 
         otp_channel,
-        birth_date  // ← Ajout du champ date de naissance
+        birth_date
       } = req.body;
       
       const user = await User.findByPk(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Vérifier si l'email n'est pas déjà utilisé par un autre utilisateur
@@ -77,7 +91,11 @@ async updateProfile(req, res, next) {
           } 
         });
         if (existingUser) {
-          return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+          return res.status(409).json({ 
+            state: false, 
+            message: 'Cet email est déjà utilisé', 
+            datas: null 
+          });
         }
       }
       
@@ -94,13 +112,17 @@ async updateProfile(req, res, next) {
         
         if (age < 13) {
           return res.status(400).json({ 
-            error: 'Vous devez avoir au moins 13 ans' 
+            state: false, 
+            message: 'Vous devez avoir au moins 13 ans', 
+            datas: null 
           });
         }
         
         if (age > 120) {
           return res.status(400).json({ 
-            error: 'Date de naissance invalide' 
+            state: false, 
+            message: 'Date de naissance invalide', 
+            datas: null 
           });
         }
       }
@@ -112,19 +134,23 @@ async updateProfile(req, res, next) {
         emergency_contact_name: emergency_contact_name || user.emergency_contact_name,
         emergency_contact_phone: emergency_contact_phone || user.emergency_contact_phone,
         otp_channel: otp_channel || user.otp_channel,
-        birth_date: birth_date !== undefined ? (birth_date || null) : user.birth_date  // ← Ajout
+        birth_date: birth_date !== undefined ? (birth_date || null) : user.birth_date
+      });
+      
+      // Récupérer l'utilisateur mis à jour sans le password
+      const updatedUser = await User.findByPk(user.id, {
+        attributes: { exclude: ['password_hash'] }
       });
       
       res.json({
-        success: true,
+        state: true,
         message: 'Profil mis à jour avec succès',
-        user: user.toJSON()
+        datas: updatedUser.toJSON()
       });
     } catch (error) {
       next(error);
     }
   }
-
 
   /**
    * Mettre à jour le contact d'urgence
@@ -136,7 +162,11 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       await user.update({
@@ -145,11 +175,13 @@ async updateProfile(req, res, next) {
       });
       
       res.json({
-        success: true,
+        state: true,
         message: 'Contact d\'urgence mis à jour avec succès',
-        emergency_contact: {
-          name: user.emergency_contact_name,
-          phone: user.emergency_contact_phone
+        datas: {
+          emergency_contact: {
+            name: user.emergency_contact_name,
+            phone: user.emergency_contact_phone
+          }
         }
       });
     } catch (error) {
@@ -165,7 +197,11 @@ async updateProfile(req, res, next) {
     try {
       const user = await User.findByPk(req.user.id);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Soft delete - désactiver le compte
@@ -176,8 +212,9 @@ async updateProfile(req, res, next) {
       });
       
       res.json({ 
-        success: true, 
-        message: 'Compte désactivé avec succès' 
+        state: true, 
+        message: 'Compte désactivé avec succès', 
+        datas: null 
       });
     } catch (error) {
       next(error);
@@ -198,12 +235,20 @@ async updateProfile(req, res, next) {
       const file = req.file;
       
       if (!file) {
-        return res.status(400).json({ error: 'Aucune photo fournie' });
+        return res.status(400).json({ 
+          state: false, 
+          message: 'Aucune photo fournie', 
+          datas: null 
+        });
       }
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Upload vers Supabase
@@ -219,10 +264,11 @@ async updateProfile(req, res, next) {
       
       // Supprimer l'ancienne photo si elle existe
       if (user.avatar_url) {
-        // Optionnel: supprimer l'ancien fichier de Supabase
         const oldPath = user.avatar_url.split('/').pop();
         if (oldPath) {
           try {
+            // Importer supabase client si nécessaire
+            const { supabase } = require('../config/supabase');
             await supabase.storage.from(bucket).remove([`${directory}/${oldPath}`]);
           } catch (e) {
             console.log('Ancienne photo non supprimée:', e.message);
@@ -234,13 +280,19 @@ async updateProfile(req, res, next) {
       await user.update({ avatar_url: result.url });
       
       res.json({
-        success: true,
+        state: true,
         message: 'Photo de profil mise à jour avec succès',
-        avatar_url: result.url
+        datas: {
+          avatar_url: result.url
+        }
       });
     } catch (error) {
       console.error('Erreur upload photo profil:', error);
-      res.status(500).json({ error: 'Erreur lors de l\'upload de la photo' });
+      res.status(500).json({ 
+        state: false, 
+        message: 'Erreur lors de l\'upload de la photo', 
+        datas: null 
+      });
     }
   }
 
@@ -254,12 +306,20 @@ async updateProfile(req, res, next) {
       const file = req.file;
       
       if (!file) {
-        return res.status(400).json({ error: 'Aucune photo fournie' });
+        return res.status(400).json({ 
+          state: false, 
+          message: 'Aucune photo fournie', 
+          datas: null 
+        });
       }
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Upload vers Supabase
@@ -277,13 +337,19 @@ async updateProfile(req, res, next) {
       await user.update({ cover_url: result.url });
       
       res.json({
-        success: true,
+        state: true,
         message: 'Photo de couverture mise à jour avec succès',
-        cover_url: result.url
+        datas: {
+          cover_url: result.url
+        }
       });
     } catch (error) {
       console.error('Erreur upload photo couverture:', error);
-      res.status(500).json({ error: 'Erreur lors de l\'upload de la photo' });
+      res.status(500).json({ 
+        state: false, 
+        message: 'Erreur lors de l\'upload de la photo', 
+        datas: null 
+      });
     }
   }
 
@@ -297,16 +363,20 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       if (user.avatar_url) {
-        // Optionnel: supprimer le fichier de Supabase
         const bucket = 'profiles';
         const directory = 'avatars';
         const oldPath = user.avatar_url.split('/').pop();
         if (oldPath) {
           try {
+            const { supabase } = require('../config/supabase');
             await supabase.storage.from(bucket).remove([`${directory}/${oldPath}`]);
           } catch (e) {
             console.log('Ancienne photo non supprimée:', e.message);
@@ -317,8 +387,9 @@ async updateProfile(req, res, next) {
       }
       
       res.json({
-        success: true,
-        message: 'Photo de profil supprimée avec succès'
+        state: true,
+        message: 'Photo de profil supprimée avec succès',
+        datas: null
       });
     } catch (error) {
       next(error);
@@ -335,16 +406,20 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       if (user.cover_url) {
-        // Optionnel: supprimer le fichier de Supabase
         const bucket = 'profiles';
         const directory = 'covers';
         const oldPath = user.cover_url.split('/').pop();
         if (oldPath) {
           try {
+            const { supabase } = require('../config/supabase');
             await supabase.storage.from(bucket).remove([`${directory}/${oldPath}`]);
           } catch (e) {
             console.log('Ancienne photo non supprimée:', e.message);
@@ -355,8 +430,9 @@ async updateProfile(req, res, next) {
       }
       
       res.json({
-        success: true,
-        message: 'Photo de couverture supprimée avec succès'
+        state: true,
+        message: 'Photo de couverture supprimée avec succès',
+        datas: null
       });
     } catch (error) {
       next(error);
@@ -376,9 +452,12 @@ async updateProfile(req, res, next) {
       });
       
       res.json({
-        success: true,
-        avatar_url: user.avatar_url,
-        cover_url: user.cover_url
+        state: true,
+        message: 'Photos récupérées avec succès',
+        datas: {
+          avatar_url: user.avatar_url,
+          cover_url: user.cover_url
+        }
       });
     } catch (error) {
       next(error);
@@ -405,20 +484,40 @@ async updateProfile(req, res, next) {
       const rides = await Ride.findAndCountAll({
         where,
         include: [
-          { model: Driver, as: 'driver', include: [{ model: User, as: 'user', attributes: ['id', 'first_name', 'last_name', 'avatar_url'] }] },
-          { model: Category, as: 'category', attributes: ['id', 'name', 'base_price'] }
+          { 
+            model: Driver, 
+            as: 'driver', 
+            include: [{ 
+              model: User, 
+              as: 'user', 
+              attributes: ['id', 'first_name', 'last_name', 'avatar_url'] 
+            }] 
+          },
+          { 
+            model: Category, 
+            as: 'category', 
+            attributes: ['id', 'name', 'base_price'] 
+          }
         ],
         order: [['created_at', 'DESC']],
         limit: parseInt(limit),
         offset: parseInt(offset)
       });
       
+      const totalPages = Math.ceil(rides.count / parseInt(limit));
+      const currentPage = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
+      
       res.json({
-        success: true,
-        rides: rides.rows,
-        total: rides.count,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        state: true,
+        message: 'Historique des trajets récupéré',
+        datas: rides.rows,
+        meta: {
+          total: rides.count,
+          count: rides.rows.length,
+          per_page: parseInt(limit),
+          current_page: currentPage,
+          total_pages: totalPages
+        }
       });
     } catch (error) {
       next(error);
@@ -445,8 +544,9 @@ async updateProfile(req, res, next) {
       const user = await User.findByPk(userId, { attributes: ['created_at', 'rating', 'total_rides'] });
       
       res.json({
-        success: true,
-        stats: {
+        state: true,
+        message: 'Statistiques récupérées avec succès',
+        datas: {
           total_rides: totalRides || 0,
           total_spent: totalSpent || 0,
           wallet_balance: wallet ? wallet.balance : 0,
@@ -470,12 +570,17 @@ async updateProfile(req, res, next) {
       
       const wallet = await Wallet.findOne({ where: { user_id: userId } });
       if (!wallet) {
-        return res.status(404).json({ error: 'Wallet non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Wallet non trouvé', 
+          datas: null 
+        });
       }
       
       res.json({
-        success: true,
-        wallet: {
+        state: true,
+        message: 'Infos wallet récupérées',
+        datas: {
           balance: wallet.balance,
           currency: wallet.currency,
           last_transaction_at: wallet.updated_at
@@ -495,20 +600,23 @@ async updateProfile(req, res, next) {
       const { limit = 50, offset = 0 } = req.query;
       
       // À implémenter selon votre modèle Transaction
-      // const transactions = await Transaction.findAndCountAll({
-      //   where: { user_id: req.user.id },
-      //   order: [['created_at', 'DESC']],
-      //   limit: parseInt(limit),
-      //   offset: parseInt(offset)
-      // });
+      const transactions = [];
+      const total = 0;
+      
+      const totalPages = Math.ceil(total / parseInt(limit));
+      const currentPage = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
       
       res.json({
-        success: true,
-        transactions: [],
-        total: 0,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        message: 'Endpoint à implémenter avec le modèle Transaction'
+        state: true,
+        message: 'Historique des transactions récupéré',
+        datas: transactions,
+        meta: {
+          total: total,
+          count: transactions.length,
+          per_page: parseInt(limit),
+          current_page: currentPage,
+          total_pages: totalPages
+        }
       });
     } catch (error) {
       next(error);
@@ -539,12 +647,30 @@ async updateProfile(req, res, next) {
         order: [['created_at', 'DESC']]
       });
       
+      const totalPages = Math.ceil(users.count / parseInt(limit));
+      const currentPage = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
+      
       res.json({
-        success: true,
-        users: users.rows,
-        total: users.count,
-        limit: parseInt(limit),
-        offset: parseInt(offset)
+        state: true,
+        message: 'Liste des utilisateurs récupérée',
+        datas: users.rows.map(user => ({
+          id: user.id,
+          phone: user.phone,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          role: user.role,
+          is_active: user.is_active,
+          is_blocked: user.is_blocked,
+          created_at: user.created_at
+        })),
+        meta: {
+          total: users.count,
+          count: users.rows.length,
+          per_page: parseInt(limit),
+          current_page: currentPage,
+          total_pages: totalPages
+        }
       });
     } catch (error) {
       next(error);
@@ -564,15 +690,33 @@ async updateProfile(req, res, next) {
       });
       
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       const wallet = await Wallet.findOne({ where: { user_id: user.id } });
       
       res.json({
-        success: true,
-        user: user.toJSON(),
-        wallet: wallet ? { balance: wallet.balance } : null
+        state: true,
+        message: 'Utilisateur récupéré',
+        datas: {
+          user: {
+            id: user.id,
+            phone: user.phone,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            role: user.role,
+            is_active: user.is_active,
+            is_blocked: user.is_blocked,
+            rating: user.rating,
+            total_rides: user.total_rides
+          },
+          wallet: wallet ? { balance: wallet.balance } : null
+        }
       });
     } catch (error) {
       next(error);
@@ -590,7 +734,11 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       const blockedUntil = days ? new Date(Date.now() + days * 24 * 60 * 60 * 1000) : null;
@@ -602,9 +750,15 @@ async updateProfile(req, res, next) {
       });
       
       res.json({
-        success: true,
+        state: true,
         message: `Utilisateur ${user.phone} bloqué avec succès`,
-        user: user.toJSON()
+        datas: {
+          id: user.id,
+          phone: user.phone,
+          is_blocked: true,
+          blocked_reason: user.blocked_reason,
+          blocked_until: blockedUntil
+        }
       });
     } catch (error) {
       next(error);
@@ -621,7 +775,11 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       await user.update({
@@ -631,9 +789,15 @@ async updateProfile(req, res, next) {
       });
       
       res.json({
-        success: true,
+        state: true,
         message: `Utilisateur ${user.phone} débloqué avec succès`,
-        user: user.toJSON()
+        datas: {
+          id: user.id,
+          phone: user.phone,
+          is_blocked: false,
+          blocked_reason: null,
+          blocked_until: null
+        }
       });
     } catch (error) {
       next(error);
@@ -651,15 +815,23 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       await user.update({ role });
       
       res.json({
-        success: true,
+        state: true,
         message: `Rôle de l'utilisateur ${user.phone} changé en ${role}`,
-        user: user.toJSON()
+        datas: {
+          id: user.id,
+          phone: user.phone,
+          role: user.role
+        }
       });
     } catch (error) {
       next(error);
@@ -676,7 +848,11 @@ async updateProfile(req, res, next) {
       
       const user = await User.findByPk(userId);
       if (!user) {
-        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        return res.status(404).json({ 
+          state: false, 
+          message: 'Utilisateur non trouvé', 
+          datas: null 
+        });
       }
       
       // Soft delete
@@ -687,8 +863,9 @@ async updateProfile(req, res, next) {
       });
       
       res.json({
-        success: true,
-        message: `Utilisateur ${user.phone} supprimé avec succès`
+        state: true,
+        message: `Utilisateur ${user.phone} supprimé avec succès`,
+        datas: null
       });
     } catch (error) {
       next(error);

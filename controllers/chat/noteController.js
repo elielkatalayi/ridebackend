@@ -15,43 +15,60 @@ class NoteController {
             const note = await NoteService.createNote(userId, noteData, files);
             
             res.status(201).json({
-                success: true,
+                state: true,
                 message: 'Note créée avec succès',
-                data: note
+                datas: note
             });
             
         } catch (error) {
             console.error('Erreur createNote:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
     async getUserNotes(req, res) {
         try {
             const userId = req.user.id;
-            const { limit = 50, offset = 0, folder_id = null, is_pinned = null, is_archived = false } = req.query;
+            const limit = parseInt(req.query.limit) || 50;
+            const offset = parseInt(req.query.offset) || 0;
+            const folder_id = req.query.folder_id === 'null' ? null : req.query.folder_id;
+            const is_pinned = req.query.is_pinned === 'true' ? true : (req.query.is_pinned === 'false' ? false : null);
+            const is_archived = req.query.is_archived === 'true';
             
-            const notes = await NoteService.getUserNotes(userId, {
-                limit: parseInt(limit),
-                offset: parseInt(offset),
-                folder_id: folder_id === 'null' ? null : folder_id,
-                is_pinned: is_pinned === 'true' ? true : (is_pinned === 'false' ? false : null),
-                is_archived: is_archived === 'true'
+            const result = await NoteService.getUserNotes(userId, {
+                limit, offset, folder_id, is_pinned, is_archived
             });
             
+            const notes = result.rows || result;
+            const total = result.count || (Array.isArray(notes) ? notes.length : 0);
+            
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
+            
             res.status(200).json({
-                success: true,
-                data: notes,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: notes.length === parseInt(limit)
+                state: true,
+                message: 'Notes récupérées avec succès',
+                datas: notes,
+                meta: {
+                    total: total,
+                    count: notes.length,
+                    per_page: limit,
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur getUserNotes:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -63,14 +80,26 @@ class NoteController {
             const note = await NoteService.getNoteById(noteId, userId);
             
             if (!note) {
-                return res.status(404).json({ success: false, error: 'Note non trouvée' });
+                return res.status(404).json({ 
+                    state: false, 
+                    message: 'Note non trouvée', 
+                    datas: null 
+                });
             }
             
-            res.status(200).json({ success: true, data: note });
+            res.status(200).json({ 
+                state: true, 
+                message: 'Note récupérée avec succès',
+                datas: note 
+            });
             
         } catch (error) {
             console.error('Erreur getNoteById:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -83,14 +112,18 @@ class NoteController {
             const note = await NoteService.updateNote(noteId, userId, updateData);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Note mise à jour',
-                data: note
+                datas: note
             });
             
         } catch (error) {
             console.error('Erreur updateNote:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -98,18 +131,23 @@ class NoteController {
         try {
             const { noteId } = req.params;
             const userId = req.user.id;
-            const { permanent = false } = req.query;
+            const permanent = req.query.permanent === 'true';
             
-            await NoteService.deleteNote(noteId, userId, permanent === 'true');
+            await NoteService.deleteNote(noteId, userId, permanent);
             
             res.status(200).json({
-                success: true,
-                message: permanent === 'true' ? 'Note supprimée définitivement' : 'Note déplacée dans la corbeille'
+                state: true,
+                message: permanent ? 'Note supprimée définitivement' : 'Note déplacée dans la corbeille',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur deleteNote:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -121,14 +159,18 @@ class NoteController {
             const note = await NoteService.restoreNote(noteId, userId);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Note restaurée',
-                data: note
+                datas: note
             });
             
         } catch (error) {
             console.error('Erreur restoreNote:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -144,14 +186,18 @@ class NoteController {
             const folder = await NoteService.createFolder(userId, folderData);
             
             res.status(201).json({
-                success: true,
+                state: true,
                 message: 'Dossier créé',
-                data: folder
+                datas: folder
             });
             
         } catch (error) {
             console.error('Erreur createFolder:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -162,13 +208,18 @@ class NoteController {
             const folders = await NoteService.getUserFolders(userId);
             
             res.status(200).json({
-                success: true,
-                data: folders
+                state: true,
+                message: 'Dossiers récupérés',
+                datas: folders
             });
             
         } catch (error) {
             console.error('Erreur getUserFolders:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -181,14 +232,18 @@ class NoteController {
             const folder = await NoteService.updateFolder(folderId, userId, updateData);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Dossier mis à jour',
-                data: folder
+                datas: folder
             });
             
         } catch (error) {
             console.error('Erreur updateFolder:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -200,13 +255,18 @@ class NoteController {
             await NoteService.deleteFolder(folderId, userId);
             
             res.status(200).json({
-                success: true,
-                message: 'Dossier supprimé'
+                state: true,
+                message: 'Dossier supprimé',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur deleteFolder:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -220,27 +280,43 @@ class NoteController {
             const { q, limit = 50, offset = 0 } = req.query;
             
             if (!q || q.length < 2) {
-                return res.status(400).json({ success: false, error: 'La recherche doit contenir au moins 2 caractères' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'La recherche doit contenir au moins 2 caractères', 
+                    datas: null 
+                });
             }
             
-            const notes = await NoteService.searchNotes(userId, q, {
+            const result = await NoteService.searchNotes(userId, q, {
                 limit: parseInt(limit),
                 offset: parseInt(offset)
             });
             
+            const notes = result.rows || result;
+            const total = result.count || (Array.isArray(notes) ? notes.length : 0);
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
+            
             res.status(200).json({
-                success: true,
-                data: notes,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: notes.length === parseInt(limit)
+                state: true,
+                message: 'Résultats de recherche',
+                datas: notes,
+                meta: {
+                    total: total,
+                    count: notes.length,
+                    per_page: parseInt(limit),
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur searchNotes:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
 }

@@ -16,14 +16,18 @@ class ChatController {
             const chat = await ChatService.createPrivateChat(userId, otherUserId);
             
             res.status(201).json({
-                success: true,
+                state: true,
                 message: 'Chat créé avec succès',
-                data: chat
+                datas: chat
             });
             
         } catch (error) {
             console.error('Erreur createPrivateChat:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -42,37 +46,55 @@ class ChatController {
             }, members || []);
             
             res.status(201).json({
-                success: true,
+                state: true,
                 message: 'Groupe créé avec succès',
-                data: chat
+                datas: chat
             });
             
         } catch (error) {
             console.error('Erreur createGroupChat:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
     async getUserChats(req, res) {
         try {
             const userId = req.user.id;
-            const { limit = 50, offset = 0 } = req.query;
+            const limit = parseInt(req.query.limit) || 50;
+            const offset = parseInt(req.query.offset) || 0;
             
-            const chats = await ChatService.getUserChats(userId, { limit: parseInt(limit), offset: parseInt(offset) });
+            const result = await ChatService.getUserChats(userId, { limit, offset });
+            
+            const chats = result.rows || result;
+            const total = result.count || (Array.isArray(chats) ? chats.length : 0);
+            
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
             
             res.status(200).json({
-                success: true,
-                data: chats,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: chats.length === parseInt(limit)
+                state: true,
+                message: 'Chats récupérés avec succès',
+                datas: chats,
+                meta: {
+                    total: total,
+                    count: chats.length,
+                    per_page: limit,
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur getUserChats:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -84,14 +106,26 @@ class ChatController {
             const chat = await ChatService.getChatById(chatId, userId);
             
             if (!chat) {
-                return res.status(404).json({ success: false, error: 'Chat non trouvé' });
+                return res.status(404).json({ 
+                    state: false, 
+                    message: 'Chat non trouvé', 
+                    datas: null 
+                });
             }
             
-            res.status(200).json({ success: true, data: chat });
+            res.status(200).json({ 
+                state: true, 
+                message: 'Chat récupéré avec succès',
+                datas: chat
+            });
             
         } catch (error) {
             console.error('Erreur getChatById:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -108,13 +142,18 @@ class ChatController {
             await ChatService.addMember(chatId, userId, memberId);
             
             res.status(200).json({
-                success: true,
-                message: 'Membre ajouté avec succès'
+                state: true,
+                message: 'Membre ajouté avec succès',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur addMember:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -126,13 +165,18 @@ class ChatController {
             await ChatService.removeMember(chatId, userId, memberId);
             
             res.status(200).json({
-                success: true,
-                message: 'Membre retiré avec succès'
+                state: true,
+                message: 'Membre retiré avec succès',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur removeMember:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -145,13 +189,18 @@ class ChatController {
             await ChatService.updateMemberRole(chatId, userId, memberId, role);
             
             res.status(200).json({
-                success: true,
-                message: 'Rôle mis à jour avec succès'
+                state: true,
+                message: 'Rôle mis à jour avec succès',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur updateMemberRole:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -163,13 +212,18 @@ class ChatController {
             await ChatService.leaveGroup(chatId, userId);
             
             res.status(200).json({
-                success: true,
-                message: 'Vous avez quitté le groupe'
+                state: true,
+                message: 'Vous avez quitté le groupe',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur leaveGroup:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -186,14 +240,18 @@ class ChatController {
             const chat = await ChatService.updateChatSettings(chatId, userId, settings);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Paramètres mis à jour',
-                data: chat
+                datas: chat
             });
             
         } catch (error) {
             console.error('Erreur updateChatSettings:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -208,14 +266,18 @@ class ChatController {
             });
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Paramètres mis à jour',
-                data: participant
+                datas: participant
             });
             
         } catch (error) {
             console.error('Erreur updateParticipantSettings:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -228,11 +290,19 @@ class ChatController {
             const userId = req.user.id;
             const stats = await ChatService.getUserStats(userId);
             
-            res.status(200).json({ success: true, data: stats });
+            res.status(200).json({ 
+                state: true, 
+                message: 'Statistiques récupérées avec succès',
+                datas: stats
+            });
             
         } catch (error) {
             console.error('Erreur getUserStats:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
 }

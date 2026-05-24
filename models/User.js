@@ -41,6 +41,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('passenger', 'admin'),
       defaultValue: 'passenger'
     },
+    is_profile_completed: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false
+    },
     is_active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true

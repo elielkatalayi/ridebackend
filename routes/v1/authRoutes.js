@@ -5,197 +5,121 @@ const authController = require('../../controllers/authController');
 const { validate } = require('../../middleware/validation');
 const { authLimiter, otpLimiter } = require('../../middleware/rateLimiter');
 const userValidator = require('../../validators/userValidator');
-const { authenticate } = require('../../middleware/auth');
+const { auth } = require('../../middleware/auth');
 
 // =====================================================
-// 🔐 ROUTES D'AUTHENTIFICATION
+// 🔐 ROUTES UTILISÉES PAR LE FRONTEND FLUTTER
 // =====================================================
 
-// ========== INSCRIPTION (2 ÉTAPES) ==========
-
 /**
- * @route   POST /api/v1/auth/request-register-otp
- * @desc    ÉTAPE 1: Demander OTP pour inscription
+ * @route   POST /api/v1/auth/send-otp
+ * @desc    ÉTAPE 1: Envoyer OTP pour inscription
  * @access  Public
+ * @body    { phone, channel? }
+ * @return  { state, message, data: { verification_id, expiresAt, phone } }
  */
 router.post(
-  '/request-register-otp',
+  '/send-otp',
   otpLimiter,
-  validate(userValidator.requestRegisterOtp, 'body'),
-  authController.requestRegisterOtp
-);
-
-/**
- * @route   POST /api/v1/auth/verify-otp-only
- * @desc    ÉTAPE 2: Vérifier OTP (sans créer compte)
- * @access  Public
- */
-router.post(
-  '/verify-otp-only',
-  otpLimiter,
-  validate(userValidator.verifyOtpOnly, 'body'),
-  authController.verifyOtpOnly
-);
-
-/**
- * @route   POST /api/v1/auth/complete-registration
- * @desc    ÉTAPE 3: Compléter l'inscription après vérification OTP
- * @access  Public
- */
-router.post(
-  '/complete-registration',
-  authLimiter,
-  validate(userValidator.completeRegistration, 'body'),
-  authController.completeRegistration
-);
-
-// ========== CONNEXION ==========
-
-/**
- * @route   POST /api/v1/auth/login
- * @desc    Connexion utilisateur (classique)
- * @access  Public
- */
-router.post(
-  '/login',
-  authLimiter,
-  validate(userValidator.login, 'body'),
-  authController.login
-);
-
-/**
- * @route   POST /api/v1/auth/login-otp
- * @desc    Connexion utilisateur via OTP (email)
- * @access  Public
- */
-router.post(
-  '/login-otp',
-  authLimiter,
-  validate(userValidator.loginOtp, 'body'),
-  authController.loginWithOtp
-);
-
-/**
- * @route   POST /api/v1/auth/verify-login-otp
- * @desc    Vérifier OTP et connexion (téléphone)
- * @access  Public
- */
-router.post(
-  '/verify-login-otp',
-  authLimiter,
-  validate(userValidator.verifyLoginOtp, 'body'),
-  authController.verifyLoginOtp
-);
-
-// ========== OTP GÉNÉRIQUE ==========
-
-/**
- * @route   POST /api/v1/auth/request-otp
- * @desc    Demander un code OTP générique
- * @access  Public
- */
-router.post(
-  '/request-otp',
-  otpLimiter,
-  validate(userValidator.requestOtp, 'body'),
-  authController.requestOtp
+  validate(userValidator.sendOtp, 'body'),
+  authController.sendOtp
 );
 
 /**
  * @route   POST /api/v1/auth/verify-otp
- * @desc    Vérifier un code OTP générique
+ * @desc    ÉTAPE 2: Vérifier OTP et créer compte
  * @access  Public
+ * @body    { verification_id, otp_code }
+ * @return  { state, message, data: { token, refreshToken, user, isProfileCompleted } }
  */
+// Dans authRoutes.js - changement temporaire pour tester
 router.post(
-  '/verify-otp',
+  '/verify-otp',  // ← NOUVEAU NOM
   otpLimiter,
-  validate(userValidator.verifyOtp, 'body'),
-  authController.verifyOtp
+  authController.verifyOtp  // ← SANS validation
 );
 
-// ========== RÉINITIALISATION MOT DE PASSE (2 ÉTAPES) ==========
-
 /**
- * @route   POST /api/v1/auth/forgot-password
- * @desc    ÉTAPE 1: Demander OTP pour réinitialisation
- * @access  Public
+ * @route   POST /api/v1/auth/edit-profile
+ * @desc    ÉTAPE 3: Compléter le profil utilisateur
+ * @access  Private (nécessite token)
+ * @body    { first_name, last_name, email?, birth_date?, emergency_contact_name?, emergency_contact_phone? }
+ * @return  { state, message, data: { user, wallet, token, refreshToken } }
  */
 router.post(
-  '/forgot-password',
+  '/edit-profile',
+  auth,
   authLimiter,
-  validate(userValidator.forgotPassword, 'body'),
-  authController.forgotPassword
+  validate(userValidator.editProfile, 'body'),
+  authController.editProfile
 );
 
 /**
- * @route   POST /api/v1/auth/verify-reset-otp
- * @desc    ÉTAPE 2: Vérifier OTP pour réinitialisation
- * @access  Public
+ * @route   POST /api/v1/auth/initiate-phone-change
+ * @desc    ÉTAPE 1: Initier le changement de numéro
+ * @access  Private
+ * @body    { new_phone }
+ * @return  { success, message, phoneChangeId, old_phone, new_phone, expiresIn }
  */
 router.post(
-  '/verify-reset-otp',
-  otpLimiter,
-  validate(userValidator.verifyResetOtp, 'body'),
-  authController.verifyResetOtp
-);
-
-/**
- * @route   POST /api/v1/auth/reset-password
- * @desc    ÉTAPE 3: Réinitialiser le mot de passe après vérification
- * @access  Public
- */
-router.post(
-  '/reset-password',
+  '/initiate-phone-change',
+  auth,
   authLimiter,
-  // validate(userValidator.resetPassword, 'body'), // ← Validation supprimée
-  authController.resetPassword
+  validate(userValidator.initiatePhoneChange, 'body'),
+  authController.initiatePhoneChange
 );
 
-// ========== RAFRAÎCHISSEMENT TOKEN ==========
+/**
+ * @route   POST /api/v1/auth/verify-phone-change
+ * @desc    ÉTAPE 2: Vérifier et changer le numéro
+ * @access  Private
+ * @body    { phoneChangeId, new_phone_otp }
+ * @return  { success, message, token, refreshToken, user }
+ */
+router.post(
+  '/verify-phone-change',
+  auth,
+  authLimiter,
+  validate(userValidator.verifyPhoneChange, 'body'),
+  authController.verifyPhoneChange
+);
 
 /**
  * @route   POST /api/v1/auth/refresh-token
  * @desc    Rafraîchir le token JWT
  * @access  Public
+ * @body    { refreshToken }
+ * @return  { state, message, data: { token, refreshToken } }
  */
 router.post(
   '/refresh-token',
-  validate(userValidator.refreshToken, 'body'),
-  authController.refreshToken
+  authLimiter,
+  validate(userValidator.refreshTokenBody, 'body'),
+  authController.refreshTokenForFrontend
 );
-
-// ========== DÉCONNEXION ==========
 
 /**
  * @route   POST /api/v1/auth/logout
  * @desc    Déconnexion
  * @access  Private
+ * @return  { state, message, data: null }
  */
-router.post('/logout', authenticate, authController.logout);
-
-// ========== VÉRIFICATION EMAIL (Optionnel) ==========
-
-// /**
-//  * @route   POST /api/v1/auth/verify-email
-//  * @desc    Vérifier l'email avec OTP
-//  * @access  Private
-//  */
-// router.post(
-//   '/verify-email',
-//   authenticate,
-//   validate(userValidator.verifyEmail, 'body'),
-//   authController.verifyEmail
-// );
+router.post(
+  '/logout',
+  auth,
+  authController.logoutForFrontend
+);
 
 /**
-//  * @route   POST /api/v1/auth/resend-verification
-//  * @desc    Renvoyer OTP de vérification email
-//  * @access  Private
-//  */
-// router.post(
-//   '/resend-verification',
-//   authenticate,
-//   authController.resendVerification
-// );
+ * @route   GET /api/v1/auth/profile-status
+ * @desc    Vérifier le statut du profil
+ * @access  Private
+ * @return  { state, message, data: { isProfileCompleted, hasName, user } }
+ */
+router.get(
+  '/profile-status',
+  auth,
+  authController.profileStatus
+);
 
 module.exports = router;

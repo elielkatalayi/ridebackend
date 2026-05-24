@@ -16,14 +16,18 @@ class MessageController {
             const message = await MessageService.sendMessage(chatId, userId, messageData, files);
             
             res.status(201).json({
-                success: true,
+                state: true,
                 message: 'Message envoyé',
-                data: message
+                datas: message
             });
             
         } catch (error) {
             console.error('Erreur sendMessage:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -31,28 +35,40 @@ class MessageController {
         try {
             const { chatId } = req.params;
             const userId = req.user.id;
-            const { limit = 50, offset = 0, before, after } = req.query;
+            const limit = parseInt(req.query.limit) || 50;
+            const offset = parseInt(req.query.offset) || 0;
+            const { before, after } = req.query;
             
-            const messages = await MessageService.getMessages(chatId, userId, {
-                limit: parseInt(limit),
-                offset: parseInt(offset),
-                before,
-                after
+            const result = await MessageService.getMessages(chatId, userId, {
+                limit, offset, before, after
             });
             
+            const messages = result.rows || result;
+            const total = result.count || (Array.isArray(messages) ? messages.length : 0);
+            
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
+            
             res.status(200).json({
-                success: true,
-                data: messages,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: messages.length === parseInt(limit)
+                state: true,
+                message: 'Messages récupérés avec succès',
+                datas: messages,
+                meta: {
+                    total: total,
+                    count: messages.length,
+                    per_page: limit,
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur getMessages:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -64,14 +80,26 @@ class MessageController {
             const message = await MessageService.getMessageById(messageId, userId);
             
             if (!message) {
-                return res.status(404).json({ success: false, error: 'Message non trouvé' });
+                return res.status(404).json({ 
+                    state: false, 
+                    message: 'Message non trouvé', 
+                    datas: null 
+                });
             }
             
-            res.status(200).json({ success: true, data: message });
+            res.status(200).json({ 
+                state: true, 
+                message: 'Message récupéré avec succès',
+                datas: message
+            });
             
         } catch (error) {
             console.error('Erreur getMessageById:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -88,14 +116,18 @@ class MessageController {
             const message = await MessageService.editMessage(messageId, userId, content);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Message modifié',
-                data: message
+                datas: message
             });
             
         } catch (error) {
             console.error('Erreur editMessage:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -108,13 +140,18 @@ class MessageController {
             await MessageService.deleteMessage(messageId, userId, forEveryone);
             
             res.status(200).json({
-                success: true,
-                message: forEveryone ? 'Message supprimé pour tous' : 'Message supprimé'
+                state: true,
+                message: forEveryone ? 'Message supprimé pour tous' : 'Message supprimé',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur deleteMessage:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -131,13 +168,18 @@ class MessageController {
             await MessageService.addReaction(messageId, userId, reaction_type);
             
             res.status(200).json({
-                success: true,
-                message: 'Réaction ajoutée'
+                state: true,
+                message: 'Réaction ajoutée',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur addReaction:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -149,13 +191,18 @@ class MessageController {
             await MessageService.removeReaction(messageId, userId);
             
             res.status(200).json({
-                success: true,
-                message: 'Réaction retirée'
+                state: true,
+                message: 'Réaction retirée',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur removeReaction:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -171,13 +218,18 @@ class MessageController {
             await MessageService.pinMessage(chatId, messageId, userId);
             
             res.status(200).json({
-                success: true,
-                message: 'Message épinglé'
+                state: true,
+                message: 'Message épinglé',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur pinMessage:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -189,31 +241,41 @@ class MessageController {
             await MessageService.unpinMessage(chatId, messageId, userId);
             
             res.status(200).json({
-                success: true,
-                message: 'Message détaché'
+                state: true,
+                message: 'Message détaché',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur unpinMessage:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
     async getPinnedMessages(req, res) {
         try {
             const { chatId } = req.params;
-            const { limit = 20 } = req.query;
+            const limit = parseInt(req.query.limit) || 20;
             
-            const messages = await MessageService.getPinnedMessages(chatId, parseInt(limit));
+            const messages = await MessageService.getPinnedMessages(chatId, limit);
             
             res.status(200).json({
-                success: true,
-                data: messages
+                state: true,
+                message: 'Messages épinglés récupérés',
+                datas: messages
             });
             
         } catch (error) {
             console.error('Erreur getPinnedMessages:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -229,13 +291,18 @@ class MessageController {
             await MessageService.markAsRead(chatId, userId, messageId);
             
             res.status(200).json({
-                success: true,
-                message: 'Messages marqués comme lus'
+                state: true,
+                message: 'Messages marqués comme lus',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur markAsRead:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -247,13 +314,18 @@ class MessageController {
             await MessageService.markAsDelivered(chatId, userId, messageId);
             
             res.status(200).json({
-                success: true,
-                message: 'Message marqué comme délivré'
+                state: true,
+                message: 'Message marqué comme délivré',
+                datas: null
             });
             
         } catch (error) {
             console.error('Erreur markAsDelivered:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -267,28 +339,44 @@ class MessageController {
             const { q, limit = 50, offset = 0, chatId } = req.query;
             
             if (!q || q.length < 2) {
-                return res.status(400).json({ success: false, error: 'La recherche doit contenir au moins 2 caractères' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'La recherche doit contenir au moins 2 caractères', 
+                    datas: null 
+                });
             }
             
-            const messages = await MessageService.searchMessages(userId, q, {
+            const result = await MessageService.searchMessages(userId, q, {
                 limit: parseInt(limit),
                 offset: parseInt(offset),
                 chatId
             });
             
+            const messages = result.rows || result;
+            const total = result.count || (Array.isArray(messages) ? messages.length : 0);
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
+            
             res.status(200).json({
-                success: true,
-                data: messages,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: messages.length === parseInt(limit)
+                state: true,
+                message: 'Résultats de recherche',
+                datas: messages,
+                meta: {
+                    total: total,
+                    count: messages.length,
+                    per_page: parseInt(limit),
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur searchMessages:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
 }

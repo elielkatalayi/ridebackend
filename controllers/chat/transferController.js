@@ -1,5 +1,6 @@
 const TransferService = require('../../services/chat/transferService');
-const { ChatMessage } = require('../../models');  // ✅ Ajoutez cette ligne
+const { ChatMessage } = require('../../models');
+
 class TransferController {
     
     // =====================================================
@@ -8,77 +9,32 @@ class TransferController {
     
     async transferToChat(req, res) {
         try {
-            // 📝 LOG 1: Début de la requête
-            console.log('=' .repeat(60));
-            console.log('📨 [TRANSFER] Nouvelle requête reçue');
-            
-            // 📝 LOG 2: Paramètres de la route
-            console.log('📌 Paramètres URL (req.params):', JSON.stringify(req.params, null, 2));
-            
-            // 📝 LOG 3: Corps de la requête
-            console.log('📦 Corps de la requête (req.body):', JSON.stringify(req.body, null, 2));
-            
-            // 📝 LOG 4: Utilisateur authentifié
-            console.log('👤 Utilisateur connecté (req.user):', JSON.stringify({
-                id: req.user?.id,
-                email: req.user?.email,
-                role: req.user?.role
-            }, null, 2));
-            
             const { messageId } = req.params;
             const userId = req.user.id;
             const { targetChatId, note } = req.body;
             
-            // 📝 LOG 5: Variables extraites
-            console.log('\n📊 Variables extraites:');
-            console.log('   - messageId:', messageId);
-            console.log('   - userId:', userId);
-            console.log('   - targetChatId:', targetChatId);
-            console.log('   - note:', note || '(pas de note)');
-            
-            // 📝 LOG 6: Validation
             if (!targetChatId) {
-                console.log('❌ [TRANSFER] Erreur: targetChatId manquant');
                 return res.status(400).json({ 
-                    success: false, 
-                    error: 'targetChatId est requis' 
+                    state: false, 
+                    message: 'targetChatId est requis', 
+                    datas: null 
                 });
             }
             
-            console.log('✅ [TRANSFER] Validation passée, appel du service...');
-            
-            // 📝 LOG 7: Appel du service
-            const startTime = Date.now();
             const result = await TransferService.transferToChat(messageId, userId, targetChatId, note);
-            const duration = Date.now() - startTime;
-            
-            console.log(`✅ [TRANSFER] Succès en ${duration}ms`);
-            console.log('📤 Résultat:', JSON.stringify(result, null, 2));
-            console.log('=' .repeat(60));
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Message transféré avec succès',
-                data: result
+                datas: result
             });
             
         } catch (error) {
-            // 📝 LOG 8: Erreur détaillée
-            console.error('\n❌ [TRANSFER] ERREUR DÉTAILLÉE:');
-            console.error('   - Message:', error.message);
-            console.error('   - Stack:', error.stack);
-            console.error('   - Name:', error.name);
-            
-            if (error.parent) {
-                console.error('   - SQL Error:', error.parent.message);
-                console.error('   - SQL Code:', error.parent.code);
-            }
-            
-            console.log('=' .repeat(60));
-            
+            console.error('Erreur transferToChat:', error);
             res.status(500).json({ 
-                success: false, 
-                error: error.message 
+                state: false, 
+                message: error.message, 
+                datas: null 
             });
         }
     }
@@ -96,14 +52,18 @@ class TransferController {
             const result = await TransferService.transferToNote(messageId, userId, folderId, note);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Message sauvegardé dans les notes',
-                data: result
+                datas: result
             });
             
         } catch (error) {
             console.error('Erreur transferToNote:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -118,20 +78,28 @@ class TransferController {
             const { targetChatId } = req.body;
             
             if (!targetChatId) {
-                return res.status(400).json({ success: false, error: 'targetChatId est requis' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'targetChatId est requis', 
+                    datas: null 
+                });
             }
             
             const result = await TransferService.transferNoteToChat(noteId, userId, targetChatId);
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: 'Note transférée vers le chat',
-                data: result
+                datas: result
             });
             
         } catch (error) {
             console.error('Erreur transferNoteToChat:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -145,15 +113,27 @@ class TransferController {
             const { messageIds, targetType, targetId, note } = req.body;
             
             if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
-                return res.status(400).json({ success: false, error: 'messageIds est requis' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'messageIds est requis', 
+                    datas: null 
+                });
             }
             
             if (!targetType || !['private', 'group', 'note'].includes(targetType)) {
-                return res.status(400).json({ success: false, error: 'targetType invalide' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'targetType invalide', 
+                    datas: null 
+                });
             }
             
             if (!targetId && targetType !== 'note') {
-                return res.status(400).json({ success: false, error: 'targetId est requis' });
+                return res.status(400).json({ 
+                    state: false, 
+                    message: 'targetId est requis', 
+                    datas: null 
+                });
             }
             
             const results = await TransferService.transferMultipleMessages(messageIds, userId, targetType, targetId, note);
@@ -162,14 +142,18 @@ class TransferController {
             const failCount = results.filter(r => !r.success).length;
             
             res.status(200).json({
-                success: true,
+                state: true,
                 message: `${successCount} message(s) transféré(s), ${failCount} échec(s)`,
-                data: results
+                datas: results
             });
             
         } catch (error) {
             console.error('Erreur transferMultiple:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -180,26 +164,37 @@ class TransferController {
     async getTransferHistory(req, res) {
         try {
             const userId = req.user.id;
-            const { limit = 50, offset = 0 } = req.query;
+            const limit = parseInt(req.query.limit) || 50;
+            const offset = parseInt(req.query.offset) || 0;
             
-            const transfers = await TransferService.getTransferHistory(userId, {
-                limit: parseInt(limit),
-                offset: parseInt(offset)
-            });
+            const result = await TransferService.getTransferHistory(userId, { limit, offset });
+            
+            const transfers = result.rows || result;
+            const total = result.count || (Array.isArray(transfers) ? transfers.length : 0);
+            
+            const totalPages = Math.ceil(total / limit);
+            const currentPage = Math.floor(offset / limit) + 1;
             
             res.status(200).json({
-                success: true,
-                data: transfers,
-                pagination: {
-                    limit: parseInt(limit),
-                    offset: parseInt(offset),
-                    has_more: transfers.length === parseInt(limit)
+                state: true,
+                message: 'Historique des transferts récupéré',
+                datas: transfers,
+                meta: {
+                    total: total,
+                    count: transfers.length,
+                    per_page: limit,
+                    current_page: currentPage,
+                    total_pages: totalPages
                 }
             });
             
         } catch (error) {
             console.error('Erreur getTransferHistory:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
     
@@ -214,19 +209,28 @@ class TransferController {
             
             const message = await ChatMessage.findByPk(messageId);
             if (!message) {
-                return res.status(404).json({ success: false, error: 'Message non trouvé' });
+                return res.status(404).json({ 
+                    state: false, 
+                    message: 'Message non trouvé', 
+                    datas: null 
+                });
             }
             
             const canTransfer = await TransferService.canTransfer(userId, message.chat_id);
             
             res.status(200).json({
-                success: true,
-                data: { can_transfer: canTransfer }
+                state: true,
+                message: 'Vérification effectuée',
+                datas: { can_transfer: canTransfer }
             });
             
         } catch (error) {
             console.error('Erreur canTransfer:', error);
-            res.status(500).json({ success: false, error: error.message });
+            res.status(500).json({ 
+                state: false, 
+                message: error.message, 
+                datas: null 
+            });
         }
     }
 }

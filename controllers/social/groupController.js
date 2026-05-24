@@ -27,15 +27,19 @@ class GroupController {
             });
         }
     }
-    
-    // Récupérer tous les groupes
+        
+    // Récupérer tous les groupes (sans filtre)
     async getAllGroups(req, res) {
         try {
             const { limit = 20, offset = 0, category, sort = 'newest' } = req.query;
             
-            const where = { is_deleted: false, privacy_type: { [Op.ne]: 'secret' } };
+            // 🔥 SUPPRIME le filtre privacy_type - retourne TOUS les groupes
+            const where = { is_deleted: false };
+            
+            // Ajouter filtre catégorie si fourni
             if (category) where.category = category;
             
+            // Gestion du tri
             let order = [];
             switch (sort) {
                 case 'newest':

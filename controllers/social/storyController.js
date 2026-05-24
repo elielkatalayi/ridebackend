@@ -1,3 +1,4 @@
+// controllers/social/storyController.js
 const { sequelize } = require('../../config/database');
 const { Story, StoryView, StoryComment, StoryHighlight, User } = require('../../models');
 const { Page, PageAdmin, PageFollower } = require('../../models');
@@ -7,26 +8,62 @@ const SocketService = require('../../services/notification/SocketService');
 const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
 
+// =====================================================
+// ✅ FONCTION DE NOTIFICATION (CORRIGÉE)
+// =====================================================
+async function notifyPageFollowers(pageId, storyId, authorId) {
+    if (!pageId) return;
+    
+    try {
+        const followers = await PageFollower.findAll({
+            where: { page_id: pageId },
+            attributes: ['user_id']
+        });
+        
+        for (const follower of followers) {
+            if (follower.user_id !== authorId) {
+                await NotificationService.sendStoryNotification(
+                    follower.user_id,
+                    storyId,
+                    'published',
+                    authorId,
+                    null,
+                    null,
+                    'story'
+                ).catch(console.error);
+                
+                SocketService.sendToUser(follower.user_id, 'story:new', {
+                    story_id: storyId,
+                    page_id: pageId,
+                    timestamp: new Date()
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Erreur notifyPageFollowers:', error);
+    }
+}
+
 class StoryController {
     
     // =====================================================
-    // CRÉATION DE STORY (UNIQUEMENT POUR LES PAGES)
+    // CRÉATION DE STORY
     // =====================================================
-        
+
     async createStory(req, res) {
         const transaction = await sequelize.transaction();
         
         try {
             const userId = req.user.id;
-            let { page_id, type, content, duration = 24, mentions = [], settings } = req.body;
+            let { page_id, type, content, duration = 24, mentions = [] } = req.body;
             
-            // ✅ SI PAS DE page_id, CHERCHER LA PAGE PERSONNELLE
             if (!page_id) {
                 const personalPage = await Page.findOne({
                     where: {
                         created_by: userId,
                         'settings.is_personal_page': true
-                    }
+                    },
+                    transaction
                 });
                 
                 if (!personalPage) {
@@ -40,7 +77,6 @@ class StoryController {
                 page_id = personalPage.id;
             }
             
-            // Vérifier le type
             if (!['photo', 'video', 'text', 'audio'].includes(type)) {
                 await transaction.rollback();
                 return res.status(400).json({
@@ -49,20 +85,23 @@ class StoryController {
                 });
             }
             
-            // Valider et normaliser la durée
+            if (type === 'text' && (!content || content.trim() === '')) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    error: 'Le contenu est requis pour une story de type texte'
+                });
+            }
+            
             let validDuration = parseInt(duration);
             const allowedDurations = [1, 2, 3, 4, 5, 6, 12, 24, 48, 72, 96, 120, 144, 168];
             
             if (isNaN(validDuration)) {
                 validDuration = 24;
             } else if (!allowedDurations.includes(validDuration)) {
-                const closest = allowedDurations.reduce((prev, curr) => {
-                    return (Math.abs(curr - validDuration) < Math.abs(prev - validDuration) ? curr : prev);
-                });
-                validDuration = closest;
+                validDuration = 24;
             }
             
-            // Vérifier que l'utilisateur est admin de la page
             const isAdmin = await PageAdmin.findOne({
                 where: { page_id, user_id: userId },
                 transaction
@@ -76,27 +115,76 @@ class StoryController {
                 });
             }
             
-            // Reste du code inchangé...
-            // (upload, création, etc.)
+            let mediaUrl = null;
+            let thumbnailUrl = null;
+            
+            if (req.file) {
+                const fileExt = req.file.originalname.split('.').pop();
+                const fileName = `story_${Date.now()}_${uuidv4()}.${fileExt}`;
+                const folder = `stories/${page_id}`;
+                
+                const { url, thumbnail } = await uploadToSupabase(
+                    'social-media',
+                    folder,
+                    req.file.buffer,
+                    req.file.mimetype,
+                    fileName
+                );
+                
+                mediaUrl = url;
+                thumbnailUrl = thumbnail;
+            }
+            
+            const expiresAt = new Date();
+            expiresAt.setHours(expiresAt.getHours() + validDuration);
+            
+            const story = await Story.create({
+                page_id,
+                type,
+                content: (type === 'text' || type === 'audio') ? content : null,
+                media_url: mediaUrl,
+                thumbnail_url: thumbnailUrl,
+                duration: validDuration,
+                expires_at: expiresAt,
+                mentions: mentions || [],
+                settings: {}
+            }, { transaction });
+            
+            await Page.increment('stories_count', { by: 1, where: { id: page_id }, transaction });
+            
+            await transaction.commit();
+            
+            // ✅ Appel correct de la fonction
+            notifyPageFollowers(page_id, story.id, userId).catch(err => 
+                console.error('Erreur notification followers:', err)
+            );
+            
+            return res.status(201).json({
+                success: true,
+                message: 'Story créée avec succès',
+                data: story
+            });
             
         } catch (error) {
             if (transaction && transaction.finished !== 'commit' && transaction.finished !== 'rollback') {
                 await transaction.rollback();
             }
             console.error('Erreur createStory:', error);
-            res.status(500).json({ success: false, error: error.message });
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
         }
     }
     
     // =====================================================
-    // RÉCUPÉRATION DES STORIES (UNIQUEMENT POUR LES PAGES)
+    // RÉCUPÉRATION DES STORIES
     // =====================================================
     
     async getFeedStories(req, res) {
         try {
             const userId = req.user.id;
             
-            // Récupérer les pages suivies par l'utilisateur
             const followedPages = await PageFollower.findAll({
                 where: { user_id: userId },
                 attributes: ['page_id']
@@ -112,21 +200,16 @@ class StoryController {
             
             const now = new Date();
             
-            // ❌ SUPPRIMER l'inclusion de 'page' - l'association n'existe pas
             const stories = await Story.findAll({
                 where: {
                     page_id: { [Op.in]: pageIds },
                     expires_at: { [Op.gt]: now },
                     is_deleted: false
                 },
-                // include: [
-                //     { model: Page, as: 'page', attributes: ['id', 'name', 'profile_picture'] }
-                // ],  // ← COMMENTEZ ou SUPPRIMEZ cette partie
                 order: [['created_at', 'DESC']],
                 limit: 50
             });
             
-            // Récupérer manuellement les informations des pages
             const storiesWithPageInfo = [];
             for (const story of stories) {
                 const storyObj = story.toJSON();
@@ -137,7 +220,6 @@ class StoryController {
                 storiesWithPageInfo.push(storyObj);
             }
             
-            // Regrouper par page
             const groupedStories = {};
             for (const story of storiesWithPageInfo) {
                 const pageId = story.page_id;
@@ -170,7 +252,6 @@ class StoryController {
             const { page_id } = req.params;
             const now = new Date();
             
-            // ❌ SUPPRIMER l'inclusion de 'page'
             const stories = await Story.findAll({
                 where: {
                     page_id,
@@ -180,7 +261,6 @@ class StoryController {
                 order: [['created_at', 'DESC']]
             });
             
-            // Ajouter manuellement les infos de la page
             const page = await Page.findByPk(page_id, {
                 attributes: ['id', 'name', 'profile_picture']
             });
@@ -206,7 +286,6 @@ class StoryController {
         try {
             const { story_id } = req.params;
             
-            // ❌ SUPPRIMER l'inclusion de 'page'
             const story = await Story.findByPk(story_id);
             
             if (!story || story.is_deleted) {
@@ -216,7 +295,6 @@ class StoryController {
                 });
             }
             
-            // Ajouter manuellement les infos de la page
             const storyObj = story.toJSON();
             if (story.page_id) {
                 const page = await Page.findByPk(story.page_id, {
@@ -310,7 +388,6 @@ class StoryController {
                 return res.status(404).json({ success: false, error: 'Story non trouvée' });
             }
             
-            // Vérifier que l'utilisateur est admin de la page
             const isAdmin = await PageAdmin.findOne({
                 where: { page_id: story.page_id, user_id: userId }
             });
@@ -360,13 +437,6 @@ class StoryController {
             const story = await Story.findByPk(story_id);
             if (!story) {
                 return res.status(404).json({ success: false, error: 'Story non trouvée' });
-            }
-            
-            if (story.settings?.allow_comments === false) {
-                return res.status(403).json({
-                    success: false,
-                    error: 'Les commentaires sont désactivés sur cette story'
-                });
             }
             
             let mediaFiles = [];
@@ -456,7 +526,6 @@ class StoryController {
                     const fileExt = file.originalname.split('.').pop();
                     const fileName = `story_reply_${uuidv4()}_${Date.now()}.${fileExt}`;
                     
-                    // ✅ Détecter le vrai type de média
                     let mediaType = 'document';
                     if (file.mimetype.startsWith('image/')) mediaType = 'image';
                     else if (file.mimetype.startsWith('video/')) mediaType = 'video';
@@ -471,7 +540,7 @@ class StoryController {
                     );
                     
                     mediaFiles.push({ 
-                        type: mediaType,  // ← Dynamique selon le fichier
+                        type: mediaType,
                         url,
                         mime_type: file.mimetype,
                         size: file.size
@@ -622,7 +691,6 @@ class StoryController {
         try {
             const { page_id } = req.params;
             
-            // Récupérer les highlights de la page
             const highlights = await StoryHighlight.findAll({
                 where: { 
                     page_id, 
@@ -631,7 +699,6 @@ class StoryController {
                 order: [['created_at', 'DESC']]
             });
             
-            // Récupérer manuellement les stories pour chaque highlight
             const highlightsWithStories = [];
             for (const highlight of highlights) {
                 const highlightObj = highlight.toJSON();
@@ -685,42 +752,6 @@ class StoryController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
-    
-    // =====================================================
-    // MÉTHODES PRIVÉES
-    // =====================================================
-  async notifyPageFollowers(pageId, storyId, authorId) {
-        if (!pageId) return;
-        
-        try {
-            const followers = await PageFollower.findAll({
-                where: { page_id: pageId },
-                attributes: ['user_id']
-            });
-            
-            for (const follower of followers) {
-                if (follower.user_id !== authorId) {
-                    await NotificationService.sendStoryNotification(
-                        follower.user_id,
-                        storyId,
-                        'published',
-                        authorId,
-                        null,
-                        null,
-                        'story'
-                    ).catch(console.error);
-                    
-                    SocketService.sendToUser(follower.user_id, 'story:new', {
-                        story_id: storyId,
-                        page_id: pageId,
-                        timestamp: new Date()
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Erreur notifyPageFollowers:', error);
-        }
-}
 }
 
 module.exports = new StoryController();

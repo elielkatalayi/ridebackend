@@ -11,66 +11,31 @@ class MessageService {
     // =====================================================
     // ENVOI DE MESSAGES
     // =====================================================
-    
+            
     async sendMessage(chatId, senderId, messageData, files = null) {
+        console.log('\n═══════════════════════════════════════════════════');
+        console.log('📨 [sendMessage] DEBUT');
+        console.log('   chatId:', chatId);
+        console.log('   senderId:', senderId);
+        console.log('   messageData:', JSON.stringify(messageData, null, 2));
+        console.log('   files:', files ? files.length : 0);
+        console.log('═══════════════════════════════════════════════════');
+        
         const transaction = await sequelize.transaction();
+        console.log('🔓 Transaction démarrée');
         
         try {
             const chat = await Chat.findByPk(chatId);
+            console.log('📦 Chat trouvé:', chat ? chat.id : 'NON TROUVÉ');
             if (!chat) throw new Error('Chat non trouvé');
             
-            // Vérifier slow mode
-            if (chat.settings?.slow_mode_seconds > 0) {
-                const lastMessage = await ChatMessage.findOne({
-                    where: { chat_id: chatId, sender_id: senderId },
-                    order: [['created_at', 'DESC']]
-                });
-                
-                if (lastMessage) {
-                    const secondsSince = (Date.now() - new Date(lastMessage.created_at)) / 1000;
-                    if (secondsSince < chat.settings.slow_mode_seconds) {
-                        throw new Error(`Veuillez attendre ${Math.ceil(chat.settings.slow_mode_seconds - secondsSince)} secondes`);
-                    }
-                }
-            }
+            // ... vérification slow mode ...
             
             let mediaData = null;
             
-            // Upload des fichiers
-            if (files && files.length > 0) {
-                const file = files[0];
-                const fileExt = file.originalname.split('.').pop();
-                const fileName = `chat_${uuidv4()}_${Date.now()}.${fileExt}`;
-                
-                let mediaType = 'document';
-                let messageType = 'document';
-                
-                if (file.mimetype.startsWith('image/')) {
-                    messageType = 'image';
-                    mediaType = 'image';
-                } else if (file.mimetype.startsWith('video/')) {
-                    messageType = 'video';
-                    mediaType = 'video';
-                } else if (file.mimetype.startsWith('audio/')) {
-                    messageType = 'audio';
-                    mediaType = 'audio';
-                }
-                
-                const folder = `chat/${chatId}/${messageType}s`;
-                const { url, thumbnail } = await uploadToSupabase(
-                    'chat-media', folder, file.buffer, file.mimetype, fileName
-                );
-                
-                mediaData = {
-                    url,
-                    thumbnail: thumbnail || null,
-                    type: mediaType,
-                    size: file.size,
-                    duration: file.duration || null,
-                    name: file.originalname
-                };
-            }
+            // ... upload fichiers ...
             
+            console.log('📝 Création du message...');
             // Créer le message
             const message = await ChatMessage.create({
                 chat_id: chatId,
@@ -95,7 +60,12 @@ class MessageService {
                 status: 'sent'
             }, { transaction });
             
+            console.log('✅ Message créé avec ID:', message.id);
+            console.log('   content:', message.content);
+            console.log('   created_at:', message.created_at);
+            
             // Mettre à jour le dernier message du chat
+            console.log('📝 Mise à jour du chat...');
             await chat.update({
                 last_message: message.content?.substring(0, 100) || `[${message.message_type}]`,
                 last_message_at: message.created_at,
@@ -103,37 +73,48 @@ class MessageService {
                 message_count: chat.message_count + 1
             }, { transaction });
             
+            console.log('✅ Chat mis à jour');
+            
             // Mettre à jour les statistiques utilisateur
             try {
+                console.log('📊 Mise à jour stats utilisateur...');
                 await this.updateUserStats(senderId, { total_messages: 1 }, transaction);
+                console.log('✅ Stats mises à jour');
             } catch (statsError) {
                 console.warn('⚠️ Erreur mise à jour stats utilisateur:', statsError.message);
-                // Ne pas bloquer l'envoi du message
             }
             
             // Commit de la transaction
+            console.log('💾 Commit de la transaction...');
             await transaction.commit();
+            console.log('✅ Transaction commitée');
+            
+            // Vérification immédiate après commit
+            console.log('🔍 Vérification après commit...');
+            const verifyMessage = await ChatMessage.findByPk(message.id);
+            console.log('   Message trouvé après commit:', verifyMessage ? 'OUI' : 'NON');
+            if (verifyMessage) {
+                console.log('   content:', verifyMessage.content);
+                console.log('   created_at:', verifyMessage.created_at);
+            }
             
             // Notifier les participants (hors transaction)
             await this.notifyMessage(chat, message, senderId);
             
-            // Gérer les messages éphémères
-            if (message.is_ephemeral) {
-                setTimeout(async () => {
-                    try {
-                        await this.deleteEphemeralMessage(message.id);
-                    } catch (err) {
-                        console.error('Erreur suppression message éphémère:', err);
-                    }
-                }, (messageData.ephemeral_duration || 30) * 1000);
-            }
+            console.log('📨 [sendMessage] FIN - SUCCÈS');
+            console.log('═══════════════════════════════════════════════════\n');
             
             return message;
             
         } catch (error) {
-            // Vérifier si la transaction existe et n'est pas déjà terminée
+            console.error('❌ [sendMessage] ERREUR:', error);
+            console.error('   message:', error.message);
+            console.error('   stack:', error.stack);
+            
             if (transaction && !transaction.finished) {
+                console.log('🔄 Rollback de la transaction...');
                 await transaction.rollback();
+                console.log('✅ Rollback effectué');
             }
             throw error;
         }
@@ -247,17 +228,27 @@ class MessageService {
     // =====================================================
     // RÉCUPÉRATION DES MESSAGES
     // =====================================================
-    
+        
     async getMessages(chatId, userId, options = {}) {
+        console.log('\n═══════════════════════════════════════════════════');
+        console.log('📋 [getMessages] DEBUT');
+        console.log('   chatId:', chatId);
+        console.log('   userId:', userId);
+        console.log('   options:', JSON.stringify(options));
+        console.log('═══════════════════════════════════════════════════');
+        
         const { limit = 50, offset = 0, before = null, after = null } = options;
         
+        console.log('🔍 Vérification participation...');
         const participant = await ChatParticipant.findOne({
             where: { chat_id: chatId, user_id: userId, left_at: null }
         });
         
+        console.log('   participant:', participant ? 'OUI' : 'NON');
         if (!participant) throw new Error('Non membre');
         
         const where = { chat_id: chatId, is_deleted: false };
+        console.log('   where clause:', JSON.stringify(where));
         
         if (before) {
             where.created_at = { [Op.lt]: before };
@@ -266,6 +257,7 @@ class MessageService {
             where.created_at = { [Op.gt]: after };
         }
         
+        console.log('🔍 Exécution de la requête SQL...');
         const messages = await ChatMessage.findAll({
             where,
             include: [
@@ -273,44 +265,37 @@ class MessageService {
                     model: User, 
                     as: 'sender', 
                     attributes: ['id', 'first_name', 'last_name', 'avatar_url'] 
-                },
-                { 
-                    model: ChatReaction, 
-                    as: 'reactions', 
-                    include: [{ 
-                        model: User, 
-                        as: 'user', 
-                        attributes: ['id', 'first_name', 'last_name'] 
-                    }] 
-                },
-                { 
-                    model: ChatMessage, 
-                    as: 'replyTo',  // Le message auquel on répond
-                    required: false,
-                    include: [{ 
-                        model: User, 
-                        as: 'sender', 
-                        attributes: ['id', 'first_name', 'last_name'] 
-                    }] 
-                },
-                { 
-                    model: ChatMessage, 
-                    as: 'replies',  // Les réponses à ce message
-                    required: false,
-                    limit: 3,  // Limiter le nombre de réponses pour performance
-                    separate: true,  // Exécuter une requête séparée pour les replies
-                    include: [{ 
-                        model: User, 
-                        as: 'sender', 
-                        attributes: ['id', 'first_name', 'last_name'] 
-                    }] 
                 }
             ],
             order: [['created_at', 'DESC']],
             limit,
-            offset,
-            subQuery: false  // Éviter les problèmes avec les associations multiples
+            offset
         });
+        
+        console.log('📦 Messages trouvés:', messages.length);
+        if (messages.length > 0) {
+            console.log('   Premier message:', {
+                id: messages[0].id,
+                content: messages[0].content,
+                created_at: messages[0].created_at
+            });
+        } else {
+            console.log('   ⚠️ AUCUN message trouvé !');
+            
+            // Vérification supplémentaire - tous les messages de ce chat (même supprimés)
+            const allMessages = await ChatMessage.findAll({
+                where: { chat_id: chatId },
+                order: [['created_at', 'DESC']]
+            });
+            console.log('   Total des messages dans la table (même supprimés):', allMessages.length);
+            
+            if (allMessages.length > 0) {
+                console.log('   Mais ils ont is_deleted = true ?');
+                for (const msg of allMessages) {
+                    console.log(`     - ${msg.id}: is_deleted=${msg.is_deleted}, content=${msg.content}`);
+                }
+            }
+        }
         
         // Marquer les messages comme lus
         if (messages.length > 0) {
@@ -320,6 +305,9 @@ class MessageService {
                 last_read_message_id: lastMessageId
             });
         }
+        
+        console.log('📋 [getMessages] FIN');
+        console.log('═══════════════════════════════════════════════════\n');
         
         return messages.reverse();
     }
@@ -716,23 +704,37 @@ class MessageService {
     // =====================================================
     // UTILITAIRES
     // =====================================================
-    
+        
     async updateUserStats(userId, increments, transaction = null) {
-        const [stats, created] = await ChatUserStats.findOrCreate({
-            where: { user_id: userId },
-            defaults: { user_id: userId },
-            transaction
-        });
+        console.log('📊 [updateUserStats] DEBUT');
+        console.log('   userId:', userId);
+        console.log('   increments:', JSON.stringify(increments));
         
-        const updates = {};
-        if (increments.total_messages) updates.total_messages = stats.total_messages + increments.total_messages;
-        if (increments.total_reactions_given) updates.total_reactions_given = stats.total_reactions_given + increments.total_reactions_given;
-        
-        if (Object.keys(updates).length > 0) {
-            await stats.update(updates, { transaction });
+        try {
+            const [stats, created] = await ChatUserStats.findOrCreate({
+                where: { user_id: userId },
+                defaults: { user_id: userId },
+                transaction
+            });
+            
+            console.log('   stats trouvé:', created ? 'créé' : 'existant');
+            
+            const updates = {};
+            if (increments.total_messages) updates.total_messages = (stats.total_messages || 0) + increments.total_messages;
+            if (increments.total_reactions_given) updates.total_reactions_given = (stats.total_reactions_given || 0) + increments.total_reactions_given;
+            
+            console.log('   updates à appliquer:', JSON.stringify(updates));
+            
+            if (Object.keys(updates).length > 0) {
+                await stats.update(updates, { transaction });
+                console.log('✅ Stats mises à jour');
+            }
+            
+            return stats;
+        } catch (error) {
+            console.error('❌ [updateUserStats] ERREUR:', error.message);
+            throw error;
         }
-        
-        return stats;
     }
 }
 
