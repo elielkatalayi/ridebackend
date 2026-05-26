@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-// Importation des routes
-let authRoutes, userRoutes, rideRoutes, driverRoutes, categoryRoutes, pricingRoutes, paymentRoutes, walletRoutes, sosRoutes, rentalRoutes, adminRoutes, webhookRoutes, notificationRoutes, pageRoutes, groupRoutes, postRoutes, interactionRoutes, viralRoutes, chatRoutes, storyRoutes;
-
+let authRoutes, userRoutes, rideRoutes, driverRoutes, categoryRoutes, pricingRoutes, paymentRoutes, walletRoutes, sosRoutes, rentalRoutes, adminRoutes, webhookRoutes, notificationRoutes, pageRoutes, groupRoutes, postRoutes, interactionRoutes, viralRoutes, chatRoutes, storyRoutes, noteRoutes, adRoutes, locationRoutes, commissionRoutes, vehicleRentalRoutes, contractRoutes;
 try {
   authRoutes = require('./authRoutes');
   console.log('✅ authRoutes chargé');
@@ -185,6 +183,14 @@ try {
   console.error('❌ Erreur chargement vehicleRentalRoutes:', error.message);
 }
 
+// contractRoutes
+try {
+  contractRoutes = require('./contractRoutes');
+  console.log('✅ contractRoutes chargé');
+} catch (error) {
+  console.error('❌ Erreur chargement contractRoutes:', error.message);
+}
+
 
 // Documentation API
 router.get('/docs', (req, res) => {
@@ -235,7 +241,9 @@ try {
   if (adRoutes) router.use('/advertising', adRoutes);
   if (locationRoutes ) router.use('/location', locationRoutes );
   if (commissionRoutes) router.use('/commissions', commissionRoutes);
-  if (vehicleRentalRoutes) router.use('/rentals', vehicleRentalRoutes);   
+  if (vehicleRentalRoutes) router.use('/rentals', vehicleRentalRoutes);
+  if (contractRoutes) router.use('/contracts_ride', contractRoutes);
+
   console.log('✅ Toutes les routes ont été montées avec succès');
 } catch (error) {
   console.error('❌ Erreur lors du montage des routes:', error.message);

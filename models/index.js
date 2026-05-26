@@ -98,6 +98,12 @@ const BookingReview = require('./rental/BookingReview')(sequelize, Sequelize);
 const UserPhoneHistory = require('./UserPhoneHistory')(sequelize, Sequelize);
 const Otp = require('./Otp');
 
+
+// Ajouter dans models/index.js
+const ContractRequest = require('./contrat_ride/contract_request.model');
+const Contract = require('./contrat_ride/contract.model');
+const ContractDailySlot = require('./contrat_ride/contract_daily_slot.model');
+const ContractPayment = require('./contrat_ride/contract_payment.model');
 // =====================================================
 // 📞 ASSOCIATIONS POUR USER PHONE HISTORY
 // =====================================================
@@ -428,6 +434,43 @@ AdImpression.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 AdPayment.belongsTo(AdCampaign, { foreignKey: 'campaign_id', as: 'campaign' });
 AdPayment.belongsTo(WalletTransaction, { foreignKey: 'wallet_transaction_id', as: 'wallet_transaction' });
 
+// =====================================================
+// 📌 ASSOCIATIONS POUR CONTRACT REQUEST
+// =====================================================
+
+// =====================================================
+// 📌 ASSOCIATIONS POUR CONTRACT REQUEST
+// =====================================================
+
+// Associations pour ContractRequest
+ContractRequest.belongsTo(User, { foreignKey: 'passenger_id', as: 'passenger' });
+User.hasMany(ContractRequest, { foreignKey: 'passenger_id', as: 'contractRequests' });
+
+ContractRequest.belongsTo(User, { foreignKey: 'passenger_id', as: 'user' });
+User.hasMany(ContractRequest, { foreignKey: 'passenger_id', as: 'userContractRequests' });
+
+// Associations pour Contract
+Contract.belongsTo(User, { foreignKey: 'passenger_id', as: 'passenger' });
+User.hasMany(Contract, { foreignKey: 'passenger_id', as: 'contracts_as_passenger' });
+
+Contract.belongsTo(User, { foreignKey: 'driver_id', as: 'driver' });
+User.hasMany(Contract, { foreignKey: 'driver_id', as: 'contracts_as_driver' });
+
+Contract.belongsTo(ContractRequest, { foreignKey: 'request_id', as: 'request' });
+ContractRequest.hasOne(Contract, { foreignKey: 'request_id', as: 'contract' });
+
+// Associations pour Driver (si nécessaire)
+Contract.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver_info' });
+Driver.hasMany(Contract, { foreignKey: 'driver_id', as: 'contracts' });
+
+
+// Associations pour ContractDailySlot
+ContractDailySlot.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
+Contract.hasMany(ContractDailySlot, { foreignKey: 'contract_id', as: 'daily_slots' });
+
+// Associations pour ContractPayment
+ContractPayment.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
+Contract.hasMany(ContractPayment, { foreignKey: 'contract_id', as: 'payments' });
 
 module.exports = {
   sequelize,
@@ -518,5 +561,10 @@ module.exports = {
   VehicleBooking,
   BookingReview,
 
-  Otp
+  Otp,
+  ContractRequest,
+  Contract,
+  ContractDailySlot,
+  ContractPayment
+
 };
