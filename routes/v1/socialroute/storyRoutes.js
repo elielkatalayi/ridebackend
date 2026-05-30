@@ -59,12 +59,14 @@ const highlightSchema = Joi.object({
 // =====================================================
 
 // Créer une story (uniquement pour les pages)
+// Dans storyRoutes.js
 router.post(
     '/',
     auth,
     upload.fields([
         { name: 'media', maxCount: 1 },
         { name: 'mediaFile', maxCount: 1 },
+        { name: 'file', maxCount: 1 },
         { name: 'thumbnail', maxCount: 1 }
     ]),
     validate(createStorySchema),

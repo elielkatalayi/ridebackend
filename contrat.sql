@@ -92,3 +92,61 @@ CREATE TABLE commission_withdrawals (
     INDEX idx_commission_withdrawals_driver (driver_id),
     INDEX idx_commission_withdrawals_month (month)
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Insertion des catégories de transport à Kinshasa (réalité du terrain)
+INSERT INTO categories (id, name, slug, type, icon, description, base_fare, per_km_rate, per_minute_rate, min_fare, wait_free_minutes, wait_paid_per_minute, pause_per_minute, display_order, is_active, created_at, updated_at) VALUES
+
+-- Transport collectif (Mercedes 207, minibus)
+(gen_random_uuid(), 'Transport Collectif', 'public-transport', 'ride', '🚐', 'Transport en commun - Mercedes 207, Taxi-bus. Trajet partagé.', 200, 300, 30, 1000, 3, 60, 50, 1, true, NOW(), NOW()),
+
+-- Navette / Van (Mercedes Sprinter)
+(gen_random_uuid(), 'Navette Sprinter', 'sprinter-shuttle', 'ride', '🚌', 'Navette confortable - Mercedes Sprinter. Idéal pour les groupes.', 500, 600, 60, 2000, 5, 120, 100, 2, true, NOW(), NOW()),
+
+-- Taxi-Moto (omniprésent à Kinshasa)
+(gen_random_uuid(), 'Moto-Taxi', 'moto-taxi', 'ride', '🏍️', 'Rapide et agile pour éviter les embouteillages', 250, 400, 40, 1000, 3, 80, 60, 3, true, NOW(), NOW()),
+
+-- Berline / VTC (classe affaires)
+(gen_random_uuid(), 'Berline Confort', 'berline', 'ride', '🚘', 'Voyagez en confort dans une berline climatisée', 800, 900, 80, 3000, 5, 150, 120, 4, true, NOW(), NOW()),
+
+-- Grand volume / Camionnette (déménagement, marchandises)
+(gen_random_uuid(), 'Transport Marchandises', 'cargo-transport', 'heavy', '🚛', 'Transport de marchandises - Camionnette, utilitaire', 5000, 40000, 0, 20000, 10, 500, 400, 20, true, NOW(), NOW());

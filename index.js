@@ -1,5 +1,6 @@
+// backend/index.js
 const express = require('express');
-const http = require('http'); // ✅ AJOUTÉ pour créer le serveur HTTP
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -17,6 +18,7 @@ const logger = require('./utils/logger');
 // =====================================================
 const { initializeSocket } = require('./sockets');
 const SocketService = require('./services/notification/SocketService');
+// ❌ SUPPRIMÉ : const { initCallSocket } = require('./sockets/callSocket');
 
 // Créer le dossier logs s'il n'existe pas
 if (!fs.existsSync(path.join(__dirname, '../logs'))) {
@@ -60,10 +62,8 @@ app.use(helmet({
 // ✅ CONFIGURATION CORS COMPLÈTE POUR FLUTTER
 // =====================================================
 
-// Configuration CORS étendue pour supporter Flutter et toutes les origines
 const corsOptions = {
   origin: function(origin, callback) {
-    // Liste des origines autorisées
     const allowedOrigins = [
       env.FRONTEND_URL,
       env.PASSENGER_APP_URL,
@@ -76,17 +76,15 @@ const corsOptions = {
       'http://localhost:8080',
       'http://192.168.1.65:3000',
       'http://192.168.1.65:5000',
-      'http://192.168.17.63:5000',  // ✅ Ton IP
+      'http://192.168.17.63:5000',
       'http://192.168.17.63:8080',
       'https://ridebackend-1.onrender.com',
       'https://medie-app-flutter.web.app',
       'http://localhost:*'
     ];
     
-    // Permettre les requêtes sans origine (comme les apps mobiles)
     if (!origin) return callback(null, true);
     
-    // Vérifier si l'origine est autorisée (supporte les wildcards)
     const isAllowed = allowedOrigins.some(allowed => {
       if (allowed.includes('*')) {
         const pattern = allowed.replace('*', '.*');
@@ -99,7 +97,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.log('❌ CORS bloqué pour:', origin);
-      callback(null, true); // Pour le développement, on accepte toutes
+      callback(null, true);
     }
   },
   credentials: true,
@@ -117,16 +115,12 @@ const corsOptions = {
     'Access-Control-Allow-Credentials'
   ],
   exposedHeaders: ['Content-Length', 'X-Request-Id'],
-  maxAge: 86400 // 24 heures
+  maxAge: 86400
 };
 
-// Appliquer CORS avant toutes les routes
 app.use(cors(corsOptions));
-
-// Répondre aux requêtes OPTIONS (pré-vol)
 app.options('*', cors(corsOptions));
 
-// Middleware supplémentaire pour ajouter les headers CORS manuellement
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   res.header('Access-Control-Allow-Origin', origin || '*');
@@ -134,7 +128,6 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   
-  // Répondre immédiatement aux requêtes OPTIONS
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -179,7 +172,6 @@ logger.debug('✅ Middlewares de sécurité chargés');
 // 📝 LOGGING
 // =====================================================
 
-// Morgan pour les logs HTTP (format combiné)
 const morganFormat = env.NODE_ENV === 'production' ? 'combined' : 'dev';
 const accessLogStream = fs.createWriteStream(
   path.join(__dirname, '../logs/access.log'),
@@ -188,7 +180,6 @@ const accessLogStream = fs.createWriteStream(
 app.use(morgan(morganFormat, { stream: accessLogStream }));
 app.use(morgan(morganFormat));
 
-// Logger personnalisé pour les requêtes
 app.use((req, res, next) => {
   const start = Date.now();
   
@@ -214,7 +205,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware pour capturer les réponses d'erreur
 app.use((req, res, next) => {
   const originalJson = res.json;
   res.json = function(data) {
@@ -394,24 +384,26 @@ logger.info('🎯 Tous les middlewares et routes sont en place');
 
 const PORT = env.PORT || 5000;
 
-// ✅ CRÉER LE SERVEUR HTTP (au lieu de app.listen directement)
+// ✅ CRÉER LE SERVEUR HTTP
 const server = http.createServer(app);
 
-// ✅ INITIALISER SOCKET.IO
+// ✅ UN SEUL APPEL (notifications + appels vocaux)
 const io = initializeSocket(server);
+
+// ❌ SUPPRIMÉ : const callIO = initCallSocket(server);
 
 // ✅ DÉMARRER LE SERVEUR
 server.listen(PORT, () => {
   logger.info('='.repeat(60));
   logger.info(`🚀 Serveur démarré avec succès !`);
   logger.info(`📡 HTTP URL: http://localhost:${PORT}`);
-  logger.info(`🔌 WebSocket URL: ws://localhost:${PORT}`);
+  logger.info(`🔌 WebSocket URL (notifications + appels): ws://localhost:${PORT}`);
   logger.info(`🌍 Environnement: ${env.NODE_ENV}`);
   logger.info(`💾 Base de données: ${env.DB_NAME || 'Non configurée'}`);
   logger.info(`📝 Logs: ${path.join(__dirname, '../logs')}`);
   logger.info('='.repeat(60));
   console.log(`\n✅ Serveur API démarré sur http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket disponible sur ws://localhost:${PORT}`);
+  console.log(`🔌 WebSocket (notifications + appels) disponible sur ws://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`📚 Documentation: http://localhost:${PORT}/\n`);
 });
@@ -491,10 +483,11 @@ process.on('SIGINT', () => {
   });
 });
 
-// Middleware de debug pour voir tous les headers
+// Middleware de debug
 app.use((req, res, next) => {
   console.log('📨 Headers Authorization:', req.headers.authorization);
   console.log('📨 URL:', req.url);
   next();
 });
+
 module.exports = { app, server, io };

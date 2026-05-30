@@ -1,4 +1,4 @@
-// sockets/index.js
+// backend/sockets/index.js
 const SocketService = require('../services/notification/SocketService');
 const PresenceHandler = require('./handlers/presenceHandler');
 const RideHandler = require('./handlers/rideHandler');
@@ -21,6 +21,7 @@ const authMiddleware = async (socket, next) => {
     socket.userId = decoded.id || decoded.userId;
     socket.userRole = decoded.role || 'passenger';
     socket.userEmail = decoded.email;
+    socket.userName = decoded.first_name || decoded.name || 'Utilisateur';
     
     next();
   } catch (error) {
@@ -32,7 +33,7 @@ function initializeSocket(server) {
   const { Server } = require('socket.io');
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || '*',
+      origin: '*',
       methods: ['GET', 'POST'],
       credentials: true
     },
@@ -45,12 +46,15 @@ function initializeSocket(server) {
   // Middleware global
   io.use(authMiddleware);
   
-  // Connexion principale
+  // =====================================================
+  // CONNEXION PRINCIPALE (Notifications + Chat + Appels)
+  // =====================================================
   io.on('connection', (socket) => {
     const userId = socket.userId;
     const userRole = socket.userRole;
+    const userName = socket.userName;
     
-    console.log(`🔌 New connection: user ${userId} (${userRole}) - socket ${socket.id}`);
+    console.log(`🔌 New connection: user ${userId} (${userRole}) - ${userName} - socket ${socket.id}`);
     
     // Enregistrer dans SocketService
     SocketService.addSocket(userId, socket.id, socket, {
@@ -62,6 +66,7 @@ function initializeSocket(server) {
     socket.emit('connection:established', {
       userId,
       role: userRole,
+      userName,
       timestamp: new Date(),
       serverTime: new Date().toISOString()
     });
@@ -72,7 +77,9 @@ function initializeSocket(server) {
       socket.emit('badge:update', { count });
     }).catch(() => {});
     
-    // Initialiser tous les handlers
+    // =====================================================
+    // INITIALISER TOUS LES HANDLERS
+    // =====================================================
     const handlers = [
       new PresenceHandler(io, socket),
       new RideHandler(io, socket),
@@ -84,10 +91,124 @@ function initializeSocket(server) {
     
     handlers.forEach(handler => handler.register());
     
-    // Déconnexion
+    // =====================================================
+    // APPELS VOCAUX (WebRTC Signaling) - FUSION DE callSocket.js
+    // =====================================================
+    
+    // Rejoindre une salle d'appel
+    socket.on('call:join-room', ({ roomId, userId, userName, userAvatar }) => {
+      socket.join(roomId);
+      socket.data.roomId = roomId;
+      
+      console.log(`📞 ${userName || socket.userName} (${userId}) a rejoint la salle ${roomId}`);
+      
+      socket.to(roomId).emit('call:user-joined', {
+        userId: userId || socket.userId,
+        userName: userName || socket.userName,
+        userAvatar,
+        socketId: socket.id
+      });
+    });
+    
+    // Lancer un appel
+    socket.on('call:start', ({ targetUserId, targetSocketId, roomId, callerName, callerAvatar, isVideo }) => {
+      console.log(`📞 Appel de ${socket.userName} vers ${targetUserId} (video: ${isVideo})`);
+      
+      io.to(targetSocketId).emit('call:incoming', {
+        fromUserId: socket.userId,
+        fromUserName: socket.userName,
+        fromUserAvatar: callerAvatar || socket.userAvatar,
+        roomId,
+        socketId: socket.id,
+        isVideo
+      });
+    });
+    
+    // Accepter un appel
+    socket.on('call:accept', ({ targetSocketId, roomId }) => {
+      console.log(`✅ Appel accepté par ${socket.userName}`);
+      io.to(targetSocketId).emit('call:accepted', {
+        roomId,
+        callerId: socket.userId,
+        callerName: socket.userName,
+        socketId: socket.id
+      });
+    });
+    
+    // Refuser un appel
+    socket.on('call:reject', ({ targetSocketId }) => {
+      console.log(`❌ Appel refusé par ${socket.userName}`);
+      io.to(targetSocketId).emit('call:rejected', {
+        fromUserId: socket.userId,
+        fromUserName: socket.userName
+      });
+    });
+    
+    // WebRTC Signaling - Offer
+    socket.on('call:offer', ({ targetSocketId, offer }) => {
+      console.log(`📤 Offre WebRTC de ${socket.userName}`);
+      io.to(targetSocketId).emit('call:offer', {
+        offer,
+        fromSocketId: socket.id,
+        fromUserId: socket.userId,
+        fromUserName: socket.userName
+      });
+    });
+    
+    // WebRTC Signaling - Answer
+    socket.on('call:answer', ({ targetSocketId, answer }) => {
+      console.log(`📥 Réponse WebRTC de ${socket.userName}`);
+      io.to(targetSocketId).emit('call:answer', {
+        answer,
+        fromSocketId: socket.id
+      });
+    });
+    
+    // WebRTC Signaling - ICE Candidate
+    socket.on('call:ice-candidate', ({ targetSocketId, candidate }) => {
+      io.to(targetSocketId).emit('call:ice-candidate', {
+        candidate,
+        fromSocketId: socket.id
+      });
+    });
+    
+    // Fin d'appel
+    socket.on('call:end', ({ targetSocketId, roomId }) => {
+      console.log(`📞 Appel terminé par ${socket.userName}`);
+      io.to(targetSocketId).emit('call:ended', {
+        fromUserId: socket.userId,
+        fromUserName: socket.userName
+      });
+      
+      if (socket.data.roomId) {
+        socket.leave(socket.data.roomId);
+        delete socket.data.roomId;
+      }
+    });
+    
+    // Quitter salle d'appel
+    socket.on('call:leave-room', ({ roomId }) => {
+      socket.leave(roomId);
+      console.log(`📞 ${socket.userName} a quitté la salle ${roomId}`);
+      socket.to(roomId).emit('call:user-left', {
+        userId: socket.userId,
+        userName: socket.userName
+      });
+    });
+    
+    // =====================================================
+    // DÉCONNEXION
+    // =====================================================
     socket.on('disconnect', (reason) => {
-      console.log(`❌ Disconnect: user ${userId} - ${reason}`);
+      console.log(`❌ Disconnect: user ${userId} (${userName}) - ${reason}`);
       SocketService.removeSocket(socket.id);
+      
+      if (socket.data.roomId) {
+        socket.to(socket.data.roomId).emit('call:user-left', {
+          userId: socket.userId,
+          userName: socket.userName
+        });
+      }
     });
     
     // Gestion des erreurs
@@ -97,7 +218,9 @@ function initializeSocket(server) {
     });
   });
   
-  // Namespace pour la localisation
+  // =====================================================
+  // NAMESPACE POUR LA LOCALISATION
+  // =====================================================
   const locationNamespace = io.of('/location');
   locationNamespace.use(authMiddleware);
   locationNamespace.on('connection', (socket) => {
@@ -141,7 +264,6 @@ function initializeSocket(server) {
           recorded_at: location.recorded_at 
         });
         
-        // Si c'est une course active, diffuser aux participants
         if (rideId) {
           locationNamespace.to(`ride:${rideId}`).emit('location:ride-update', {
             userId: userId,
@@ -258,7 +380,7 @@ function initializeSocket(server) {
   SocketService.setIO(io);
   
   console.log('🚀 Socket.IO server initialized');
-  console.log('   - Main namespace: /');
+  console.log('   - Main namespace: / (Notifications, Chat, Appels)');
   console.log('   - Location namespace: /location');
   
   return io;

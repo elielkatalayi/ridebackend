@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 let authRoutes, userRoutes, rideRoutes, driverRoutes, categoryRoutes, pricingRoutes, paymentRoutes, walletRoutes, sosRoutes, rentalRoutes, adminRoutes, webhookRoutes, notificationRoutes, pageRoutes, groupRoutes, postRoutes, interactionRoutes, viralRoutes, chatRoutes, storyRoutes, noteRoutes, adRoutes, locationRoutes, commissionRoutes, vehicleRentalRoutes, contractRoutes;
+let publicRoutes ,vehicleRoutes ,bookingRoutes
 try {
   authRoutes = require('./authRoutes');
   console.log('✅ authRoutes chargé');
@@ -64,13 +65,6 @@ try {
 } catch (error) {
   console.error('❌ Erreur chargement sosRoutes:', error.message);
 }
-
-// try {
-//   rentalRoutes = require('./ride/rentalRoutes');
-//   console.log('✅ rentalRoutes chargé');
-// } catch (error) {
-//   console.error('❌ Erreur chargement rentalRoutes:', error.message);
-// }
 
 try {
   adminRoutes = require('./adminRoutes');
@@ -175,13 +169,6 @@ try {
   console.error('❌ Erreur chargement commissionRoutes:', error.message);
 }
 
-// vehicleRentalRoutes
-try {
-  vehicleRentalRoutes = require('./rental/vehicleRentalRoutes');
-  console.log('✅ vehicleRentalRoutes chargé');
-} catch (error) {
-  console.error('❌ Erreur chargement vehicleRentalRoutes:', error.message);
-}
 
 // contractRoutes
 try {
@@ -191,6 +178,38 @@ try {
   console.error('❌ Erreur chargement contractRoutes:', error.message);
 }
 
+
+
+
+
+
+// contractRoutes
+try {
+  publicRoutes = require('./rental/publicRoutes');
+  console.log('✅ publicRoutes chargé');
+} catch (error) {
+  console.error('❌ Erreur chargement publicRoutes:', error.message);
+}
+// vehicleRoutes
+try {
+  vehicleRoutes = require('./rental/vehicleRoutes');
+  console.log('✅ vehicleRoutes chargé');
+} catch (error) {
+  console.error('❌ Erreur chargement vehicleRoutes:', error.message);
+}
+// bookingRoutes
+try {
+  bookingRoutes = require('./rental/bookingRoutes');
+  console.log('✅ bookingRoutes chargé');
+} catch (error) {
+  console.error('❌ Erreur chargement bookingRoutes:', error.message);
+}
+
+
+// Importer les sous-routeurs
+// const publicRoutes = require('./rental/publicRoutes');
+// const vehicleRoutes = require('./rental/vehicleRoutes');
+// const bookingRoutes = require('./rental/bookingRoutes');
 
 // Documentation API
 router.get('/docs', (req, res) => {
@@ -242,7 +261,10 @@ try {
   if (locationRoutes ) router.use('/location', locationRoutes );
   if (commissionRoutes) router.use('/commissions', commissionRoutes);
   if (vehicleRentalRoutes) router.use('/rentals', vehicleRentalRoutes);
-  if (contractRoutes) router.use('/contracts_ride', contractRoutes);
+  if (contractRoutes) router.use('/contracts', contractRoutes);
+  if (publicRoutes) router.use('/public', publicRoutes);
+  if (vehicleRoutes) router.use('/vehicle', vehicleRoutes);
+  if (bookingRoutes) router.use('/booking', bookingRoutes);
 
   console.log('✅ Toutes les routes ont été montées avec succès');
 } catch (error) {

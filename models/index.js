@@ -17,8 +17,6 @@ const Wallet = require('./Wallet')(sequelize, Sequelize);
 const WalletTransaction = require('./WalletTransaction')(sequelize, Sequelize);
 const Payment = require('./Payment')(sequelize, Sequelize);
 const SosAlert = require('./SosAlert')(sequelize, Sequelize);
-// const Chat = require('./Chat')(sequelize, Sequelize);
-// const ChatMessage = require('./ChatMessage')(sequelize, Sequelize);
 const DriverPointsHistory = require('./DriverPointsHistory')(sequelize, Sequelize);
 const PlatformSetting = require('./PlatformSetting')(sequelize, Sequelize);
 const DispatchSetting = require('./DispatchSetting')(sequelize, Sequelize);
@@ -29,8 +27,6 @@ const HeavyEquipmentRental = require('./HeavyEquipmentRental')(sequelize, Sequel
 const AdminLog = require('./AdminLog')(sequelize, Sequelize);
 const OtpCode = require('./OtpCode')(sequelize, Sequelize);
 
-
-
 const Notification = require('./notification/Notification');
 const NotificationBatch = require('./notification/NotificationBatch');
 const UserDevice = require('./notification/UserDevice');
@@ -39,7 +35,6 @@ const NotificationTemplate = require('./notification/NotificationTemplate');
 const NotificationLog = require('./notification/NotificationLog');
 const PendingPush = require('./notification/PendingPush');
 const SocketSession = require('./notification/SocketSession');
-
 
 // Modèles sociaux
 const Group = require('./social/Group');
@@ -69,13 +64,11 @@ const ChatNoteFolder = require('./chat/ChatNoteFolder');
 const ChatTransfer = require('./chat/ChatTransfer');
 const ChatUserStats = require('./chat/ChatUserStats');
 
-
 // Nouveaux modèles Stories
 const Story = require('./social/Story');
 const StoryView = require('./social/StoryView');
 const StoryComment = require('./social/StoryComment');
 const StoryHighlight = require('./social/StoryHighlight');
-
 
 // =====================================================
 // MODÈLES PUBLICITAIRES (ADVERTISING)
@@ -90,20 +83,21 @@ const CommissionHistory = require('./CommissionHistory')(sequelize, Sequelize);
 // Ajoutez cette ligne après OtpCode ou avec les autres modèles
 const UserLocation = require('./UserLocation')(sequelize, Sequelize);
 
+// =====================================================
+// 🚗 MODÈLES RENTAL
+// =====================================================
 const Vehicle = require('./rental/Vehicle')(sequelize, Sequelize);
-const VehicleAvailability = require('./rental/VehicleAvailability')(sequelize, Sequelize);
 const VehicleBooking = require('./rental/VehicleBooking')(sequelize, Sequelize);
-const BookingReview = require('./rental/BookingReview')(sequelize, Sequelize);
 
 const UserPhoneHistory = require('./UserPhoneHistory')(sequelize, Sequelize);
 const Otp = require('./Otp');
-
 
 // Ajouter dans models/index.js
 const ContractRequest = require('./contrat_ride/contract_request.model');
 const Contract = require('./contrat_ride/contract.model');
 const ContractDailySlot = require('./contrat_ride/contract_daily_slot.model');
 const ContractPayment = require('./contrat_ride/contract_payment.model');
+
 // =====================================================
 // 📞 ASSOCIATIONS POUR USER PHONE HISTORY
 // =====================================================
@@ -112,21 +106,25 @@ const ContractPayment = require('./contrat_ride/contract_payment.model');
 User.hasMany(UserPhoneHistory, { foreignKey: 'user_id', as: 'phoneHistory' });
 UserPhoneHistory.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-// Association Vehicle ↔ User (owner)
+// =====================================================
+// 🚗 ASSOCIATIONS POUR LE SYSTÈME DE LOCATION
+// =====================================================
+
+// 1. Vehicle ↔ User (propriétaire)
 Vehicle.belongsTo(User, { foreignKey: 'owner_id', as: 'owner' });
 User.hasMany(Vehicle, { foreignKey: 'owner_id', as: 'vehicles' });
 
-// Association Vehicle ↔ VehicleAvailability
-Vehicle.hasMany(VehicleAvailability, { foreignKey: 'vehicle_id', as: 'availabilities' });
-VehicleAvailability.belongsTo(Vehicle, { foreignKey: 'vehicle_id', as: 'vehicle' });
-
-// Association Vehicle ↔ VehicleBooking
+// 2. Vehicle ↔ VehicleBooking (réservations du véhicule)
 Vehicle.hasMany(VehicleBooking, { foreignKey: 'vehicle_id', as: 'bookings' });
 VehicleBooking.belongsTo(Vehicle, { foreignKey: 'vehicle_id', as: 'vehicle' });
 
-// Association User ↔ VehicleBooking (renter)
+// 3. User ↔ VehicleBooking (en tant que locataire)
 User.hasMany(VehicleBooking, { foreignKey: 'renter_id', as: 'renterBookings' });
 VehicleBooking.belongsTo(User, { foreignKey: 'renter_id', as: 'renter' });
+
+// 4. User ↔ VehicleBooking (en tant que propriétaire)
+User.hasMany(VehicleBooking, { foreignKey: 'owner_id', as: 'ownerBookings' });
+VehicleBooking.belongsTo(User, { foreignKey: 'owner_id', as: 'owner' });
 
 // =====================================================
 // 📍 ASSOCIATIONS POUR USER LOCATION
@@ -145,6 +143,7 @@ CommissionHistory.belongsTo(Ride, { foreignKey: 'ride_id', as: 'ride' });
 CommissionHistory.belongsTo(User, { foreignKey: 'driver_id', as: 'driver' });
 Ride.hasMany(CommissionHistory, { foreignKey: 'ride_id', as: 'commissions' });
 User.hasMany(CommissionHistory, { foreignKey: 'driver_id', as: 'commissions' });
+
 // =====================================================
 // 🔗 DÉFINITION DES ASSOCIATIONS
 // =====================================================
@@ -229,6 +228,7 @@ Rental.belongsTo(City, { foreignKey: 'city_id', as: 'city' });
 HeavyEquipmentRental.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 HeavyEquipmentRental.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
 HeavyEquipmentRental.belongsTo(City, { foreignKey: 'city_id', as: 'city' });
+
 // =====================================================
 // CHAT ASSOCIATIONS (Version complète et sans doublons)
 // =====================================================
@@ -322,8 +322,6 @@ Chat.hasMany(ChatTransfer, { foreignKey: 'chat_id', as: 'transfers' });
 ChatUserStats.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 User.hasMany(ChatUserStats, { foreignKey: 'user_id', as: 'chatStats' });
 
-
-
 // =====================================================
 // 📌 ASSOCIATIONS DES MODÈLES SOCIAUX
 // =====================================================
@@ -408,7 +406,6 @@ StoryComment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 StoryHighlight.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 StoryHighlight.belongsToMany(Story, { through: 'HighlightStories', as: 'stories' });
 
-
 // =====================================================
 // 📌 ASSOCIATIONS DES MODÈLES PUBLICITAIRES
 // =====================================================
@@ -438,10 +435,6 @@ AdPayment.belongsTo(WalletTransaction, { foreignKey: 'wallet_transaction_id', as
 // 📌 ASSOCIATIONS POUR CONTRACT REQUEST
 // =====================================================
 
-// =====================================================
-// 📌 ASSOCIATIONS POUR CONTRACT REQUEST
-// =====================================================
-
 // Associations pour ContractRequest
 ContractRequest.belongsTo(User, { foreignKey: 'passenger_id', as: 'passenger' });
 User.hasMany(ContractRequest, { foreignKey: 'passenger_id', as: 'contractRequests' });
@@ -463,7 +456,6 @@ ContractRequest.hasOne(Contract, { foreignKey: 'request_id', as: 'contract' });
 Contract.belongsTo(Driver, { foreignKey: 'driver_id', as: 'driver_info' });
 Driver.hasMany(Contract, { foreignKey: 'driver_id', as: 'contracts' });
 
-
 // Associations pour ContractDailySlot
 ContractDailySlot.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
 Contract.hasMany(ContractDailySlot, { foreignKey: 'contract_id', as: 'daily_slots' });
@@ -471,6 +463,10 @@ Contract.hasMany(ContractDailySlot, { foreignKey: 'contract_id', as: 'daily_slot
 // Associations pour ContractPayment
 ContractPayment.belongsTo(Contract, { foreignKey: 'contract_id', as: 'contract' });
 Contract.hasMany(ContractPayment, { foreignKey: 'contract_id', as: 'payments' });
+
+// =====================================================
+// 📤 EXPORTS
+// =====================================================
 
 module.exports = {
   sequelize,
@@ -491,8 +487,6 @@ module.exports = {
   WalletTransaction,
   Payment,
   SosAlert,
-  // Chat,
-  // ChatMessage,
   DriverPointsHistory,
   PlatformSetting,
   DispatchSetting,
@@ -503,6 +497,7 @@ module.exports = {
   AdminLog,
   OtpCode,
   UserLocation,
+  
   // notification
   Notification,
   NotificationBatch,
@@ -513,8 +508,7 @@ module.exports = {
   PendingPush,
   SocketSession,
 
-
-// SOCIAL
+  // SOCIAL
   Group,
   GroupMember,
   Page,
@@ -531,7 +525,7 @@ module.exports = {
   Hashtag,
   Report,
   
-// CHAT
+  // CHAT
   Chat,
   ChatParticipant,
   ChatMessage,
@@ -548,23 +542,20 @@ module.exports = {
   StoryComment,
   StoryHighlight,
 
-  // =====================================================
   // ADVERTISING (PUBLICITÉ)
-  // =====================================================
   AdCampaign,
   AdTargeting,
   AdImpression,
   AdPayment,
   CommissionHistory,
-  Vehicle ,
-  VehicleAvailability,
+  
+  // RENTAL
+  Vehicle,
   VehicleBooking,
-  BookingReview,
 
   Otp,
   ContractRequest,
   Contract,
   ContractDailySlot,
   ContractPayment
-
 };

@@ -22,25 +22,29 @@ async function notifyPageFollowers(pageId, storyId, authorId) {
         
         for (const follower of followers) {
             if (follower.user_id !== authorId) {
-                await NotificationService.sendStoryNotification(
-                    follower.user_id,
-                    storyId,
-                    'published',
-                    authorId,
-                    null,
-                    null,
-                    'story'
-                ).catch(console.error);
-                
-                SocketService.sendToUser(follower.user_id, 'story:new', {
-                    story_id: storyId,
-                    page_id: pageId,
-                    timestamp: new Date()
-                });
+                try {
+                    await NotificationService.sendStoryNotification(
+                        follower.user_id,
+                        storyId,
+                        'published',
+                        authorId,
+                        null,
+                        null,
+                        'story'
+                    );
+                    
+                    SocketService.sendToUser(follower.user_id, 'story:new', {
+                        story_id: storyId,
+                        page_id: pageId,
+                        timestamp: new Date()
+                    });
+                } catch (err) {
+                    console.error(`Erreur notification pour user ${follower.user_id}:`, err.message);
+                }
             }
         }
     } catch (error) {
-        console.error('Erreur notifyPageFollowers:', error);
+        console.error('Erreur notifyPageFollowers:', error.message);
     }
 }
 
@@ -56,6 +60,14 @@ class StoryController {
         try {
             const userId = req.user.id;
             let { page_id, type, content, duration = 24, mentions = [] } = req.body;
+            
+            // Log de debug
+            console.log('📥 [CREATE_STORY] Données reçues:');
+            console.log('   - type:', type);
+            console.log('   - page_id:', page_id);
+            console.log('   - content:', content);
+            console.log('   - duration:', duration);
+            console.log('   - files:', req.files ? Object.keys(req.files) : 'aucun');
             
             if (!page_id) {
                 const personalPage = await Page.findOne({
@@ -85,6 +97,7 @@ class StoryController {
                 });
             }
             
+            // ✅ CORRECTION 1: Texte requis seulement pour type 'text'
             if (type === 'text' && (!content || content.trim() === '')) {
                 await transaction.rollback();
                 return res.status(400).json({
@@ -115,49 +128,106 @@ class StoryController {
                 });
             }
             
+            // Gestion du fichier média
             let mediaUrl = null;
             let thumbnailUrl = null;
+            let mediaType = null;
             
-            if (req.file) {
-                const fileExt = req.file.originalname.split('.').pop();
+            let uploadedFile = null;
+            
+            if (req.files) {
+                if (req.files.media && req.files.media[0]) {
+                    uploadedFile = req.files.media[0];
+                    console.log('📸 Fichier trouvé dans media');
+                } else if (req.files.mediaFile && req.files.mediaFile[0]) {
+                    uploadedFile = req.files.mediaFile[0];
+                    console.log('📸 Fichier trouvé dans mediaFile');
+                } else if (req.files.file && req.files.file[0]) {
+                    uploadedFile = req.files.file[0];
+                    console.log('📸 Fichier trouvé dans file');
+                }
+            } else if (req.file) {
+                uploadedFile = req.file;
+                console.log('📸 Fichier trouvé dans file (singulier)');
+            }
+            
+            if (uploadedFile) {
+                const fileExt = uploadedFile.originalname.split('.').pop();
                 const fileName = `story_${Date.now()}_${uuidv4()}.${fileExt}`;
                 const folder = `stories/${page_id}`;
+                
+                if (uploadedFile.mimetype.startsWith('image/')) {
+                    mediaType = 'image';
+                    console.log('🖼️ Upload d\'une image');
+                } else if (uploadedFile.mimetype.startsWith('video/')) {
+                    mediaType = 'video';
+                    console.log('🎥 Upload d\'une vidéo');
+                } else if (uploadedFile.mimetype.startsWith('audio/')) {
+                    mediaType = 'audio';
+                    console.log('🎵 Upload d\'un audio');
+                } else {
+                    mediaType = 'document';
+                    console.log('📄 Upload d\'un document');
+                }
+                
+                console.log(`📤 Upload: ${fileName} (${uploadedFile.size} bytes)`);
                 
                 const { url, thumbnail } = await uploadToSupabase(
                     'social-media',
                     folder,
-                    req.file.buffer,
-                    req.file.mimetype,
+                    uploadedFile.buffer,
+                    uploadedFile.mimetype,
                     fileName
                 );
                 
                 mediaUrl = url;
                 thumbnailUrl = thumbnail;
+                
+                console.log(`✅ Fichier uploadé: ${mediaUrl}`);
+            } else if (type !== 'text') {
+                await transaction.rollback();
+                return res.status(400).json({
+                    success: false,
+                    error: `Un fichier est requis pour une story de type ${type}`
+                });
             }
             
             const expiresAt = new Date();
             expiresAt.setHours(expiresAt.getHours() + validDuration);
             
-            const story = await Story.create({
+            // ✅ CORRECTION 2: TOUS les types peuvent avoir du texte (optionnel)
+            // Seul le type 'text' nécessite du texte, les autres peuvent en avoir ou pas
+            const storyData = {
                 page_id,
                 type,
-                content: (type === 'text' || type === 'audio') ? content : null,
+                content: content || null,  // ← Permet d'avoir du texte pour TOUS les types
                 media_url: mediaUrl,
+                media_type: mediaType,
                 thumbnail_url: thumbnailUrl,
                 duration: validDuration,
                 expires_at: expiresAt,
                 mentions: mentions || [],
                 settings: {}
-            }, { transaction });
+            };
+            
+            console.log('📝 Création story avec:', {
+                type: storyData.type,
+                hasContent: !!storyData.content,
+                hasMedia: !!storyData.media_url
+            });
+            
+            const story = await Story.create(storyData, { transaction });
             
             await Page.increment('stories_count', { by: 1, where: { id: page_id }, transaction });
             
             await transaction.commit();
             
-            // ✅ Appel correct de la fonction
-            notifyPageFollowers(page_id, story.id, userId).catch(err => 
-                console.error('Erreur notification followers:', err)
-            );
+            // Notifications (non bloquante)
+            try {
+                await notifyPageFollowers(page_id, story.id, userId);
+            } catch (notifError) {
+                console.error('Erreur notification (non bloquante):', notifError.message);
+            }
             
             return res.status(201).json({
                 success: true,
@@ -169,7 +239,7 @@ class StoryController {
             if (transaction && transaction.finished !== 'commit' && transaction.finished !== 'rollback') {
                 await transaction.rollback();
             }
-            console.error('Erreur createStory:', error);
+            console.error('❌ Erreur createStory:', error);
             return res.status(500).json({
                 success: false,
                 error: error.message

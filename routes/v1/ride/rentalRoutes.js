@@ -1,14 +1,37 @@
+// routes/rentalRoutes.js ou routes/index.js
 const express = require('express');
 const router = express.Router();
 const rentalController = require('../../../controllers/rentalController');
 const { auth } = require('../../../middleware/auth');
+const vehicleRentalController = require('../../../controllers/rental/vehicleRentalController');
 
-// Toutes les routes nécessitent une authentification
+// Toutes les routes nécessitent une authentification SAUF certaines
+// router.use(auth); // À déplacer après les routes publiques
+
+// =====================================================
+// 🚙 ROUTES PUBLIQUES (SANS AUTHENTIFICATION)
+// =====================================================
+
+/**
+ * @route   GET /api/v1/rentals/available-vehicles
+ * @desc    Obtenir les véhicules disponibles
+ * @access  Public
+ */
+router.get('/available-vehicles', vehicleRentalController.getAvailableVehicles);
+
+/**
+ * @route   GET /api/v1/rentals/available-equipment
+ * @desc    Obtenir les engins disponibles
+ * @access  Public
+ */
+router.get('/available-equipment', rentalController.getAvailableEquipment);
+
+// =====================================================
+// 🚙 ROUTES PROTÉGÉES (AVEC AUTHENTIFICATION)
+// =====================================================
+
+// Appliquer l'authentification pour toutes les routes suivantes
 router.use(auth);
-
-// =====================================================
-// 🚙 ROUTES LOCATION
-// =====================================================
 
 /**
  * @route   POST /api/v1/rentals/vehicle
@@ -30,20 +53,6 @@ router.post('/heavy-equipment', rentalController.createHeavyEquipmentRental);
  * @access  Private
  */
 router.get('/my-rentals', rentalController.getMyRentals);
-
-/**
- * @route   GET /api/v1/rentals/available-vehicles
- * @desc    Obtenir les véhicules disponibles
- * @access  Public
- */
-router.get('/available-vehicles', rentalController.getAvailableVehicles);
-
-/**
- * @route   GET /api/v1/rentals/available-equipment
- * @desc    Obtenir les engins disponibles
- * @access  Public
- */
-router.get('/available-equipment', rentalController.getAvailableEquipment);
 
 /**
  * @route   PUT /api/v1/rentals/:rentalId/confirm

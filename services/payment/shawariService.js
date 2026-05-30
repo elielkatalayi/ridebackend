@@ -2,7 +2,7 @@ const shawari = require('../../config/shawari');
 const { Payment } = require('../../models');
 const walletService = require('./walletService');
 const NotificationService = require('../notification/NotificationService');
-
+fallbacck
 class ShawariPaymentService {
   /**
    * Initier un dépôt via Shwary (correction du nom de méthode)
